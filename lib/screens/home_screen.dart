@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         title: Text(
           "إدارة شبكات المشتركين",
-          style: TextStyle(color: Colors.black86, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
