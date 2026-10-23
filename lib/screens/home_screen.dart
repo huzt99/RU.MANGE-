@@ -1,6 +1,7 @@
-// هذه هي واجهة المستخدم الرئيسية التي تعرض المشتركين وزر البحث التلقائي
+// الشاشة الرئيسية المربوطة بشاشة التحكم بالراوتر
 import 'package:flutter/material.dart';
 import '../services/network_scanner_service.dart';
+import 'router_control_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,7 +12,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final NetworkScannerService _scanner = NetworkScannerService();
   bool _isScanning = false;
 
-  // قائمة تجريبية للمشتركين
+  // قائمة المشتركين المحفوظة
   final List<Map<String, dynamic>> _subscribers = [
     {
       "name": "المشترك: أحمد (حي الحسين)",
@@ -25,20 +26,20 @@ class _HomeScreenState extends State<HomeScreen> {
       "ip": "192.168.0.1",
       "status": "متصل (1Gbps)",
     },
+    {
+      "name": "المشترك: حسن (Nex 1200)",
+      "type": "Nex / Al-Jazeera ONT",
+      "ip": "192.168.1.1",
+      "status": "ممتازة (-20.1 dBm)",
+    },
   ];
 
-  // دالة البحث التلقائي وإضافة الراوتر
   void _autoDetectAndAdd() async {
     setState(() => _isScanning = true);
-    
-    // جلب الـ IP الحالي للراوتر
     String? detectedIp = await _scanner.getConnectedRouterGateway();
-    
-    await Future.delayed(Duration(seconds: 1)); // محاكاة عملية الفحص السريع
-    
+    await Future.delayed(Duration(seconds: 1));
     setState(() => _isScanning = false);
 
-    // إظهار نافذة منبثقة لإضافة المشترك المكتشف
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -172,7 +173,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                    onTap: () {},
+                    
+                    // عند الضغط الانتقال لشاشة التحكم الفردية
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => RouterControlScreen(
+                            subscriberName: sub["name"],
+                            routerType: sub["type"],
+                            routerIp: sub["ip"],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },
