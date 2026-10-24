@@ -1,11 +1,9 @@
-// الشاشة الرئيسية ونقطة بداية التطبيق
+// نقطة بداية التطبيق مع حماية تامة
 import 'package:flutter/material.dart';
-import 'package:ru_mange/screens/home_screen.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
-  // ضمان تهيئة محرك فلاتر وربطه بالنظام قبل تشغيل أي شيء
   WidgetsFlutterBinding.ensureInitialized();
-  
   runApp(RouterManagerApp());
 }
 
@@ -17,7 +15,6 @@ class RouterManagerApp extends StatelessWidget {
       title: 'إدارة الراوترات والمشتركين',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily: 'Cairo', // إذا أردت استخدام الخط الموحد
       ),
       home: HomeScreen(),
     );
