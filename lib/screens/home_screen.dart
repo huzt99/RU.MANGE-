@@ -22,7 +22,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSavedSubscribers();
+    // تأجيل التحميل حتى يتم عرض الشاشة بالكامل ومنع أي انهيار فوري عند الإقلاع
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSavedSubscribers();
+    });
   }
 
   // تحميل المشتركين المحفوظة من الذاكرة مع حماية تامة ضد الـ Crash
@@ -36,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      // في حال حدث أي خطأ في القراءة، نمنع انهيار التطبيق ونفتح الشاشة فارغة بشكل طبيعي
       if (mounted) {
         setState(() {
           _subscribers = [];
