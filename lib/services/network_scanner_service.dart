@@ -1,17 +1,16 @@
-// هذا الملف مسؤول عن جلب عنوان الـ IP للراوتر الذي تتصل به حالياً
+// خدمة جلب عنوان الـ IP للراوتر المتصل به حالياً - نسخة آمنة ضد الانهيار
 import 'package:network_info_plus/network_info_plus.dart';
 
 class NetworkScannerService {
   final NetworkInfo _networkInfo = NetworkInfo();
 
-  /// جلب عنوان الراوتر (Gateway IP) للشبكة المتصل بها حالياً
-  Future<String?> getConnectedRouterGateway() async {
+  // جلب عنوان الراوتر (Gateway IP) بشكل آمن تماماً
+  Future<String> getConnectedRouterGateway() async {
     try {
-      // جلب الـ IP الخاص بجهازك على الشبكة الحالية
+      // محاولة الحصول على الـ IP مع حماية ضد غياب صلاحيات الموقع
       String? wifiIp = await _networkInfo.getWifiIP();
-      
+
       if (wifiIp != null && wifiIp.isNotEmpty) {
-        // استبدال الجزء الأخير بـ .1 للحصول على عنوان الراوتر الافتراضي
         List<String> parts = wifiIp.split('.');
         if (parts.length == 4) {
           String gateway = "${parts[0]}.${parts[1]}.${parts[2]}.1";
@@ -19,8 +18,10 @@ class NetworkScannerService {
         }
       }
       
-      return "192.168.1.1"; // العنوان الافتراضي في حال التعذر
+      return "192.168.1.1"; // القيمة الافتراضية الآمنة
     } catch (e) {
+      // في حال حدوث أي خطأ أو نقص صلاحيات، نرجع العنوان الافتراضي ولا نترك التطبيق ينهار
+      print("Network Info Error: $e");
       return "192.168.1.1";
     }
   }
