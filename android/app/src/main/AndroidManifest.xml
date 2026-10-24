@@ -10,7 +10,7 @@
 
     <application
         android:label="RU Manage"
-        android:icon="@android:drawable/sym_def_app_icon"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
         
         <activity
@@ -27,7 +27,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
+        
         <!-- تفعيل Flutter Android Embedding V2 -->
         <meta-data
             android:name="flutterEmbedding"
