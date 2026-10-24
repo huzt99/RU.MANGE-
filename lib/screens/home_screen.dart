@@ -25,13 +25,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadSavedSubscribers();
   }
 
-  // تحميل المشتركين المحفوظة من الذاكرة
+  // تحميل المشتركين المحفوظة من الذاكرة مع حماية تامة ضد الـ Crash
   void _loadSavedSubscribers() async {
-    List<Map<String, dynamic>> loaded = await DatabaseService.loadSubscribers();
-    setState(() {
-      _subscribers = loaded;
-      _isLoadingData = false;
-    });
+    try {
+      List<Map<String, dynamic>> loaded = await DatabaseService.loadSubscribers();
+      if (mounted) {
+        setState(() {
+          _subscribers = loaded;
+          _isLoadingData = false;
+        });
+      }
+    } catch (e) {
+      // في حال حدث أي خطأ في القراءة، نمنع انهيار التطبيق ونفتح الشاشة فارغة بشكل طبيعي
+      if (mounted) {
+        setState(() {
+          _subscribers = [];
+          _isLoadingData = false;
+        });
+      }
+    }
   }
 
   // دالة البحث التلقائي وإضافة الراوتر مع الحفظ
@@ -41,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String? detectedIp = await _scanner.getConnectedRouterGateway();
     await Future.delayed(Duration(seconds: 1)); 
     
+    if (!mounted) return;
     setState(() => _isScanning = false);
 
     _nameController.text = "مشتـرك جديد (${detectedIp ?? '192.168.1.1'})";
@@ -84,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
-              // إضافة المشترك الجديد للقائمة
               Map<String, dynamic> newSub = {
                 "name": _nameController.text,
                 "type": "Huawei/TP-Link Router",
@@ -96,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 _subscribers.add(newSub);
               });
 
-              // حفظ القائمة المحدثة محلياً
               await DatabaseService.saveSubscribers(_subscribers);
 
               Navigator.pop(context);
