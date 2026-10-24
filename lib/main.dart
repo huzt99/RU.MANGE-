@@ -1,6 +1,6 @@
 // هذا هو نقطة البداية لتشغيل التطبيق بالكامل
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'package:ru_mange/screens/home_screen.dart'; // تم تصحيح مسار الاستيراد ليكون متوافقاً مع اسم الحزمة بالمشروع
 
 void main() {
   runApp(RouterManagerApp());
