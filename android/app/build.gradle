@@ -5,12 +5,12 @@ plugins {
 }
 
 android {
-    namespace "com.example.ru_mange"
+    namespace "com.huzt.ru_mange"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.ru_mange"
-        minSdk 21
+        applicationId "com.huzt.ru_mange"
+        minSdkVersion 21
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
@@ -27,5 +27,5 @@ android {
 }
 
 flutter {
-    source '../..'
+    source '../../'
 }
