@@ -1,13 +1,19 @@
-// نقطة بداية التطبيق مع حماية تامة
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
-void main() async {
+void main() {
+  // التقاط أي خطأ يحدث في التطبيق لمنع الانهيار المفاجئ
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(RouterManagerApp());
+  runApp(const RouterManagerApp());
 }
 
 class RouterManagerApp extends StatelessWidget {
+  const RouterManagerApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
