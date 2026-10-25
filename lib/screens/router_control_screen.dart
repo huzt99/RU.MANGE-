@@ -63,6 +63,65 @@ class _RouterControlScreenState extends State<RouterControlScreen> {
     });
   }
 
+  // ميزة الدخول المباشر لأجهزة ONU بكل إصداراتها عبر شبكة الراوتر //
+  void _openOnuLoginPortal() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("الوصول السريع لجهاز ONU", textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text(
+              "اختر إصدار الـ ONU المراد الدخول لإجهاده أو فحص الإشارة (Optical Signal):",
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.lan, color: Colors.blue),
+              title: const Text("Huawei ONU / EchoLife (192.168.1.1)", textAlign: TextAlign.right),
+              onTap: () {
+                Navigator.pop(context);
+                _launchOnuBrowser("http://192.168.1.1");
+              },
+            ),
+            const ListTile(
+              leading: const Icon(Icons.lan, color: Colors.orange),
+              title: const Text("ZTE F660 / F670 (192.168.1.1 أو 0.1)", textAlign: TextAlign.right),
+              onTap: () {
+                Navigator.pop(context);
+                _launchOnuBrowser("http://192.168.1.1");
+              },
+            ),
+            const ListTile(
+              leading: const Icon(Icons.lan, color: Colors.purple),
+              title: const Text("إصدارات ONU أخرى مخصصة", textAlign: TextAlign.right),
+              onTap: () {
+                Navigator.pop(context);
+                _launchOnuBrowser("http://${widget.ipAddress}");
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إلغاء"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // دالة فتح المتصفح أو البوابة للـ ONU //
+  void _launchOnuBrowser(String url) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("🔗 جاري توجيه الاتصال إلى بوابة الـ ONU عبر: $url"), backgroundColor: Colors.blue),
+    );
+  }
+
   // محاكاة تغيير رمز الواي فاي //
   void _changeWiFiSettings() {
     showDialog(
@@ -164,6 +223,23 @@ class _RouterControlScreenState extends State<RouterControlScreen> {
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // زر الدخول المباشر لأجهزة ONU (خاصية احترافية FTTH) //
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _openOnuLoginPortal,
+                icon: const Icon(Icons.settings_ethernet),
+                label: const Text("🌐 الدخول المباشر لإدارة جهاز ONU (فحص الإشارة)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ),
             ),
             const SizedBox(height: 20),
