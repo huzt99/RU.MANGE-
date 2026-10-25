@@ -25,6 +25,9 @@ jobs:
           flutter-version: '3.19.0'
           channel: 'stable'
 
+      - name: Clean previous builds
+        run: flutter clean
+
       - name: Get dependencies
         run: flutter pub get
 
