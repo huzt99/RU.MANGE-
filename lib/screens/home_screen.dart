@@ -1,15 +1,119 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ru_mange/services/network_service.dart';
 
-// دالة إظهار نافذة إضافة الراوتر الذكية مع خيار الأدمينية //
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List<String> routers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadRouters();
+  }
+
+  Future<void> loadRouters() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      routers = prefs.getStringList('saved_routers') ?? [];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("RU-Mange | إدارة شبكات الميدان", textAlign: TextAlign.right),
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+      ),
+      body: routers.isEmpty
+          const Center(
+              child: Text(
+                "لا توجد راوترات محفوظة.\nاضغط على زر (+) لإضافة أول راوتر للمشترك.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              itemCount: routers.length,
+              itemBuilder: (context, index) {
+                final parts = routers[index].split('|');
+                final name = parts.isNotEmpty ? parts[0] : "مشترك";
+                final ip = parts.length > 1 ? parts[1] : "0.0.0.0";
+                final type = parts.length > 2 ? parts[2] : "راوتر";
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text("IP: $ip | النوع: $type"),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.network_check, color: Colors.purple),
+                      onPressed: () async {
+                        // فحص البينك الحقيقي عند الضغط //
+                        showDialog(
+                          context: context,
+                          builder: (context) => const AlertDialog(
+                            content: Row(
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(width: 20),
+                                Text("جاري فحص اتصال الراوتر والخط..."),
+                              ],
+                            ),
+                          ),
+                        );
+
+                        final result = await NetworkService.realPing(ip);
+                        Navigator.pop(context);
+
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text("تقرير الفحص الميداني"),
+                            content: Text(result["message"] + "\nالاستجابة: " + result["latency"]),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text("حسناً"),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+        onPressed: () {
+          // استدعاء نافذة الإضافة الذكية التي صممناها سابقاً //
+          showAddRouterDialog(context, () {
+            loadRouters();
+          });
+        },
+      ),
+    );
+  }
+}
+
+// دالة نافذة إضافة الراوتر الذكية //
 void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
   final nameController = TextEditingController();
   final ipController = TextEditingController(text: "192.168.1.1");
-  final adminUserCtrl = TextEditingController(text: "admin");
-  final adminPassCtrl = TextEditingController();
-  
   String selectedRouterType = 'Huawei ONT';
-  bool autoConfigAdmin = true; // الخيار الافتراضي: دع البرنامج يتكفل بذلك
+  bool autoConfigAdmin = true;
 
   showDialog(
     context: context,
@@ -24,95 +128,44 @@ void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
               TextField(
                 controller: nameController,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(
-                  labelText: "اسم المشترك (مثلاً: علي كاظم)",
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: "اسم المشترك", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: ipController,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(
-                  labelText: "الراوتر IP (البوابة الافتراضية)",
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: "الراوتر IP", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedRouterType,
-                alignment: Alignment.centerRight,
-                decoration: const InputDecoration(
-                  labelText: "نوع الجهاز / الراوتر",
-                  border: OutlineInputBorder(),
-                ),
                 items: ['Huawei ONT', 'TP-Link Archer', 'MikroTik', 'Ubiquiti PowerBeam', 'غير ذلك']
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type, textAlign: TextAlign.right),
-                        ))
+                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (value) => setState(() => selectedRouterType = value!),
               ),
-              const SizedBox(height: 16),
-              const Divider(),
-              
-              // اختيار طريقة الأدمينية (يدوي أو تلقائي عبر البرنامج) //
-              const Text("إعدادات الدخول والأدمينية:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               SwitchListTile(
-                title: const Text("دع البرنامج يتكفل بالاتخاد التلقائي", style: TextStyle(fontSize: 12)),
+                title: const Text("تولّي البرنامج الفحص التلقائي", style: TextStyle(fontSize: 12)),
                 value: autoConfigAdmin,
                 onChanged: (val) => setState(() => autoConfigAdmin = val),
               ),
-              
-              if (!autoConfigAdmin) ...[
-                const SizedBox(height: 8),
-                TextField(
-                  controller: adminUserCtrl,
-                  textAlign: TextAlign.right,
-                  decoration: const InputDecoration(labelText: "اسم المستخدم (Admin User)", border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: adminPassCtrl,
-                  textAlign: TextAlign.right,
-                  decoration: const InputDecoration(labelText: "كلمة مرور الأدمين (Password)", border: OutlineInputBorder()),
-                ),
-              ],
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("إلغاء"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
             onPressed: () async {
               if (nameController.text.isEmpty) return;
-
-              // حفظ البيانات محلياً عبر SharedPreferences //
               final prefs = await SharedPreferences.getInstance();
               List<String> routers = prefs.getStringList('saved_routers') ?? [];
-              
-              String routerData = "${nameController.text}|${ipController.text}|$selectedRouterType";
-              routers.add(routerData);
+              routers.add("${nameController.text}|${ipController.text}|$selectedRouterType");
               await prefs.setStringList('saved_routers', routers);
-
               Navigator.pop(context);
               onRouterAdded();
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(autoConfigAdmin 
-                      ? "🤖 تم حفظ الراوتر، وتولى البرنامج الكشف التلقائي للإشارة!" 
-                      : "🔐 تم حفظ الراوتر مع بيانات الأدمينية اليدوية بنجاح!"),
-                  backgroundColor: Colors.green,
-                ),
-              );
             },
-            child: const Text("حفظ الراوتر"),
+            child: const Text("حفظ"),
           ),
         ],
       ),
