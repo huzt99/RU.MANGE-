@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace "com.huzt.ru_mange"
+    namespace "com.huz.rumange.new"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.huzt.ru_mange"
+        applicationId "com.huz.rumange.new"
         minSdkVersion 21
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 2
+        versionName "1.0.1"
     }
 
     compileOptions {
@@ -24,8 +24,8 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
-}
 
-flutter {
-    source '../../'
+    flutter {
+        source '../..'
+    }
 }
