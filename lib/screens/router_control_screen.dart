@@ -1,53 +1,100 @@
-// شاشة التحكم بالراوتر وتغيير الرمز وإدارة الإشارة
 import 'package:flutter/material.dart';
 
 class RouterControlScreen extends StatefulWidget {
   final String subscriberName;
+  final String ipAddress;
   final String routerType;
-  final String routerIp;
 
-  RouterControlScreen({
+  const RouterControlScreen({
+    super.key,
     required this.subscriberName,
+    required this.ipAddress,
     required this.routerType,
-    required this.routerIp,
   });
 
   @override
-  _RouterControlScreenState createState() => _RouterControlScreenState();
+  State<RouterControlScreen> createState() => _RouterControlScreenState();
 }
 
 class _RouterControlScreenState extends State<RouterControlScreen> {
-  final _ssidController = TextEditingController(text: "MyHomeNet");
-  final _passwordController = TextEditingController(text: "12345678");
-  bool _isLoading = false;
+  bool isTestingPing = false;
+  String pingResult = "لم يتم إجراء الفحص بعد";
+  
+  final _ssidController = TextEditingController();
+  final _passController = TextEditingController();
 
-  void _saveWifiSettings() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(Duration(seconds: 1)); // محاكاة الحفظ
-    setState(() => _isLoading = false);
+  // محاكاة فحص البينك وكشف الأخطاء وضعف الخدمة //
+  void _runPingTest() async {
+    setState(() {
+      isTestingPing = true;
+      pingResult = "جاري فحص الاستجابة (Ping to ${widget.ipAddress})...";
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("تم تغيير رمز الواي فاي واسم الشبكة بنجاح!")),
-    );
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      isTestingPing = false;
+      pingResult = "✅ الاستجابة ممتازة! البينك: 4ms | فقدان حزم البيانات: 0% (الخط سليم تماماً)";
+    });
   }
 
-  void _rebootRouter() async {
+  // محاكاة تغيير رمز الواي فاي //
+  void _changeWiFiSettings() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("إعادة تشغيل الجهاز"),
-        content: Text("هل أنت تأكد من إرسال أمر إعادة التشغيل للراوتر؟"),
+        title: const Text("تغيير إعدادات الواي فاي", textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _ssidController,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(labelText: "اسم الشبكة الجديد (SSID)", border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _passController,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(labelText: "كلمة المرور الجديدة", border: OutlineInputBorder()),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("إلغاء")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("جارٍ إعادة تشغيل الراوتر الآن...")),
+                const SnackBar(content: Text("تم إرسال أمر تحديث الرمز إلى الراوتر بنجاح!"), backgroundColor: Colors.green),
               );
             },
-            child: Text("إعادة التشغيل", style: TextStyle(color: Colors.white)),
+            child: const Text("حفظ وتطبيق"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // إعادة تشغيل الراوتر //
+  void _rebootRouter() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("إعادة تشغيل الراوتر", textAlign: TextAlign.right),
+        content: const Text("هل أنت متأكد من رغبتك في إرسال أمر إعادة التشغيل (Reboot) للراوتر عن بُعد؟", textAlign: TextAlign.right),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("🔄 تم تنفيذ أمر إعادة التشغيل بنجاح!"), backgroundColor: Colors.red),
+              );
+            },
+            child: const Text("إعادة تشغيل"),
           ),
         ],
       ),
@@ -58,89 +105,100 @@ class _RouterControlScreenState extends State<RouterControlScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.subscriberName),
-        backgroundColor: Colors.blueAccent,
+        title: Text(widget.subscriberName, style: const TextStyle(fontSize: 16)),
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // بطاقة المعلومات القادمة من الجهاز
+            // بطاقة معلومات الراوتر والاتصال //
             Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text("نوع الجهاز: ${widget.routerType}", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    SizedBox(height: 6),
-                    Text("عنوان الـ IP: ${widget.routerIp}", style: TextStyle(color: Colors.grey[700])),
-                    SizedBox(height: 6),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.fiber_manual_record, color: Colors.green, size: 14),
-                        SizedBox(width: 6),
-                        Text("الإشارة الضوئية: -19.5 dBm (ممتازة)", style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.w600)),
+                        const Icon(Icons.router, size: 40, color: Colors.purple),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(widget.subscriberName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text("${widget.routerType} • IP: ${widget.ipAddress}", style: const TextStyle(color: Colors.grey)),
+                          ],
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            // إعدادات الواي فاي
-            Text("تغيير إعدادات الواي فاي", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            SizedBox(height: 10),
-            TextField(
-              controller: _ssidController,
-              decoration: InputDecoration(
-                labelText: "اسم شبكة الواي فاي (SSID)",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: Icon(Icons.wifi),
-              ),
-            ),
-            SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: "رمز الواي فاي الجديد (Password)",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-            SizedBox(height: 16),
-            SizedBox(
+            // قسم التشخيص وكشف الأخطاء (Ping Test) //
+            const Text("🔍 تشخيص الأخطاء وفحص الخط", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            Container(
               width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: _isLoading ? null : _saveWifiSettings,
-                icon: Icon(Icons.save, color: Colors.white),
-                label: Text("حفظ التغييرات", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purple.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(pingResult, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                      onPressed: isTestingPing ? null : _runPingTest,
+                      icon: isTestingPing 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                          : const Icon(Icons.network_ping),
+                      label: Text(isTestingPing ? "جاري الفحص..." : "فحص البينك وكشف سبب الضعف"),
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 30),
+            const SizedBox(height: 25),
 
-            // خيارات الصيانة والتحكم
-            Text("إجراءات الصيانة", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            SizedBox(height: 10),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: BorderSide(color: Colors.red),
-                minimumSize: Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: _rebootRouter,
-              icon: Icon(Icons.restart_alt),
-              label: Text("إعادة تشغيل الجهاز (Reboot)", style: TextStyle(fontWeight: FontWeight.bold)),
+            // قسم التحكم السريع (تغيير الرمز وإعادة التشغيل) //
+            const Text("⚡ أدوات التحكم السريع بالفني", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+                    onPressed: _changeWiFiSettings,
+                    icon: const Icon(Icons.wifi_password),
+                    label: const Text("تغيير الرمز"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+                    onPressed: _rebootRouter,
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text("إعادة تشغيل"),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
