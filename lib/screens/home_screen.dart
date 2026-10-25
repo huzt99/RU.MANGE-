@@ -12,13 +12,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<String> routers = [];
   bool isScanningNetwork = true;
-  String detectedNetworkInfo = "جاري فحص الشبكة المتصل بها حالياً...";
+  String detectedNetworkInfo = "جاري رصد شبكة المكتب والراوتر المتصل...";
+  String activeGateway = "192.168.1.1";
 
   @override
   void initState() {
     super.initState();
     loadRouters();
-    autoDetectCurrentNetwork(); // الاكتشاف التلقائي للشبكة عند فتح التطبيق مباشرة //
+    detectActiveGateway();
   }
 
   Future<void> loadRouters() async {
@@ -28,19 +29,28 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // دالة الفحص التلقائي للشبكة الميدانية الحالية //
-  Future<void> autoDetectCurrentNetwork() async {
+  // دالة البحث الذكي عن الـ Gateway النشط في شبكة المكتب/الميدان
+  Future<void> detectActiveGateway() async {
     setState(() => isScanningNetwork = true);
-    
-    // محاولة فحص البوابة الافتراضية الشائعة للراوترات بالميدان (مثل شبكة المكتب أو راوتر المشترك)
-    final pingResult = await NetworkService.realPing("192.168.1.1");
-    
+
+    List<String> commonGateways = ["192.168.1.1", "192.168.0.1", "192.168.8.1", "10.0.0.1"];
+    String foundIp = "";
+
+    for (String gw in commonGateways) {
+      final res = await NetworkService.realPing(gw);
+      if (res["status"] == true) {
+        foundIp = gw;
+        break;
+      }
+    }
+
     setState(() {
       isScanningNetwork = false;
-      if (pingResult["status"] == true) {
-        detectedNetworkInfo = "تم اكتشاف راوتر متصل تلقائياً: 192.168.1.1 (استجابة: ${pingResult["latency"]})";
+      if (foundIp.isNotEmpty) {
+        activeGateway = foundIp;
+        detectedNetworkInfo = "تم رصد الراوتر بنجاح على الـ IP: $activeGateway";
       } else {
-        detectedNetworkInfo = "غير متصل براوتر محلي، يرجى التأكد من الاتصال بشبكة الواي فاي.";
+        detectedNetworkInfo = "متصل بالشبكة المحلية، يرجى إدخال آيباد الراوتر يدوياً إذا لزم.";
       }
     });
   }
@@ -55,15 +65,15 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: autoDetectCurrentNetwork,
-            tooltip: "إعادة فحص الشبكة الحالية",
+            onPressed: detectActiveGateway,
+            tooltip: "إعادة رصد الشبكة",
           )
         ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // شريط الكشف التلقائي للشبكة الحالية (الميزة المطلوبة) //
+          // شريط رصد شبكة الميدان //
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.all(12),
@@ -79,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(Icons.wifi, color: Colors.purple),
                     SizedBox(width: 8),
-                    Text("حالة شبكة الميدان الحالية:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+                    Text("حالة شبكة المكتب / الميدان الحالية:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -88,10 +98,31 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                           SizedBox(width: 10),
-                          Text("جاري فحص الشبكة والـ Gateway..."),
+                          Text("جاري فحص بوابات الشبكة (Gateways)..."),
                         ],
                       )
-                    : Text(detectedNetworkInfo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          Expanded(
+                            child: Text(detectedNetworkInfo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                            icon: const Icon(Icons.add_to_photos, size: 16),
+                            label: const Text("حفظ هذا الراوتر", style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              showAddRouterDialog(context, activeGateway, () {
+                                loadRouters();
+                              });
+                            },
+                          )
+                        ],
+                      ),
               ],
             ),
           ),
@@ -102,12 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 6),
 
-          // قائمة المشترين والراوترات //
+          // قائمة المشتركين //
           Expanded(
             child: routers.isEmpty
                 ? const Center(
                     child: Text(
-                      "لا توجد راوترات محفوظة مسبقاً.\nاضغط على زر (+) بالأسفل لإضافة الراوتر المكتشف.",
+                      "لا توجد راوترات محفوظة مسبقاً.\nاضغط على زر (+) بالأسفل أو زر الحفظ بالأعلى.",
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
@@ -136,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     children: [
                                       CircularProgressIndicator(),
                                       SizedBox(width: 20),
-                                      Text("جاري فحص اتصال الراوتر والخط..."),
+                                      Text("جاري فحص اتصال الراوتر..."),
                                     ],
                                   ),
                                 ),
@@ -172,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
         onPressed: () {
-          showAddRouterDialog(context, () {
+          showAddRouterDialog(context, activeGateway, () {
             loadRouters();
           });
         },
@@ -181,11 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
-  final nameController = TextEditingController(text: "راوتر المكتب / المشترك");
-  final ipController = TextEditingController(text: "192.168.1.1");
+void showAddRouterDialog(BuildContext context, String defaultIp, VoidCallback onRouterAdded) {
+  final nameController = TextEditingController(text: "راوتر المكتب");
+  final ipController = TextEditingController(text: defaultIp);
   String selectedRouterType = 'Huawei ONT';
-  bool autoConfigAdmin = true;
 
   showDialog(
     context: context,
@@ -215,11 +245,6 @@ void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
                     .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                     .toList(),
                 onChanged: (value) => setState(() => selectedRouterType = value!),
-              ),
-              SwitchListTile(
-                title: const Text("تولّي البرنامج الفحص التلقائي", style: TextStyle(fontSize: 12)),
-                value: autoConfigAdmin,
-                onChanged: (val) => setState(() => autoConfigAdmin = val),
               ),
             ],
           ),
