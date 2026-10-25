@@ -1,29 +1,27 @@
 name: ru_mange
-description: "A new Flutter project."
-publish_to: 'none'
+description: "نظام إدارة وصيانة شبكات الإنترنت والميدان للفنيين"
+publish_to: 'none' # Prevent accidental publishing to pub.dev.
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.3
-  network_info_plus: ^5.0.0
+  cupertino_icons: ^1.0.6
+  shared_preferences: ^2.2.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
-  flutter_launcher_icons: "^0.13.1"
-
-flutter_launcher_icons:
-  image_path: "icon.png"
-  android: true
-  ios: false
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
+
+  # أضف هنا مسارات الأيقونات أو الصور إذا احتجت لاحقاً
+  # assets:
+  #   - assets/images/
