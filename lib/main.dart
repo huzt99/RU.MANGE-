@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:ru_mange/screens/home_screen.dart';
 
-void main() {
+void main() async {
+  // التأكد التام من تهيئة بيئة فلاتر قبل أي عملية تخزين أو شبكة
   WidgetsFlutterBinding.ensureInitialized();
   
-  // التقاط أي خطأ برمجياً لمنع الانهيار الفوري
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.dumpErrorToConsole(details);
-  };
-
   runApp(const RouterManagerApp());
 }
 
@@ -24,30 +20,7 @@ class RouterManagerApp extends StatelessWidget {
         primarySwatch: Colors.purple,
         useMaterial3: true,
       ),
-      home: const SafeHomeWrapper(),
+      home: const HomeScreen(),
     );
-  }
-}
-
-// غلاف آمن لحماية التطبيق من الانهيار عند الفتح
-class SafeHomeWrapper extends StatelessWidget {
-  const SafeHomeWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    try {
-      return HomeScreen();
-    } catch (e) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: Text(
-            'خطأ في تحميل الشاشة: $e',
-            style: const TextStyle(color: Colors.red, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
   }
 }
