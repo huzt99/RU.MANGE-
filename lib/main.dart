@@ -4,7 +4,6 @@ import 'package:ru_mange/screens/home_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // التقاط أي خطأ برمجي لمنع انهيار التطبيق المفاجئ
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.dumpErrorToConsole(details);
   };
@@ -24,7 +23,7 @@ class RouterManagerApp extends StatelessWidget {
         primarySwatch: Colors.purple,
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: HomeScreen(),
     );
   }
 }
