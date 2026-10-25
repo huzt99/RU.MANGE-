@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ru_mange/screens/home_screen.dart';
 
 void main() async {
-  // التأكد التام من تهيئة بيئة فلاتر قبل أي عملية تخزين أو شبكة
   WidgetsFlutterBinding.ensureInitialized();
-  
   runApp(const RouterManagerApp());
 }
 
@@ -20,7 +18,7 @@ class RouterManagerApp extends StatelessWidget {
         primarySwatch: Colors.purple,
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: HomeScreen(),
     );
   }
 }
