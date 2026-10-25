@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace "com.huz.rumange.new"
+    namespace "com.huz.rumange.app"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.huz.rumange.new"
+        applicationId "com.huz.rumange.app"
         minSdkVersion 21
         targetSdk 34
         versionCode 2
