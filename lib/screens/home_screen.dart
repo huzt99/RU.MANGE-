@@ -11,11 +11,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<String> routers = [];
+  bool isScanningNetwork = true;
+  String detectedNetworkInfo = "جاري فحص الشبكة المتصل بها حالياً...";
 
   @override
   void initState() {
     super.initState();
     loadRouters();
+    autoDetectCurrentNetwork(); // الاكتشاف التلقائي للشبكة عند فتح التطبيق مباشرة //
   }
 
   Future<void> loadRouters() async {
@@ -25,73 +28,145 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // دالة الفحص التلقائي للشبكة الميدانية الحالية //
+  Future<void> autoDetectCurrentNetwork() async {
+    setState(() => isScanningNetwork = true);
+    
+    // محاولة فحص البوابة الافتراضية الشائعة للراوترات بالميدان (مثل شبكة المكتب أو راوتر المشترك)
+    final pingResult = await NetworkService.realPing("192.168.1.1");
+    
+    setState(() {
+      isScanningNetwork = false;
+      if (pingResult["status"] == true) {
+        detectedNetworkInfo = "تم اكتشاف راوتر متصل تلقائياً: 192.168.1.1 (استجابة: ${pingResult["latency"]})";
+      } else {
+        detectedNetworkInfo = "غير متصل براوتر محلي، يرجى التأكد من الاتصال بشبكة الواي فاي.";
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("RU-Mange | إدارة شبكات الميدان", textAlign: TextAlign.right),
+        title: const Text("RU-Mange | رادار شبكات الميدان", textAlign: TextAlign.right),
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: autoDetectCurrentNetwork,
+            tooltip: "إعادة فحص الشبكة الحالية",
+          )
+        ],
       ),
-      body: routers.isEmpty
-          ? const Center(
-              child: Text(
-                "لا توجد راوترات محفوظة.\nاضغط على زر (+) لإضافة أول راوتر للمشترك.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              itemCount: routers.length,
-              itemBuilder: (context, index) {
-                final parts = routers[index].split('|');
-                final name = parts.isNotEmpty ? parts[0] : "مشترك";
-                final ip = parts.length > 1 ? parts[1] : "0.0.0.0";
-                final type = parts.length > 2 ? parts[2] : "راوتر";
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("IP: $ip | النوع: $type"),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.network_check, color: Colors.purple),
-                      onPressed: () async {
-                        showDialog(
-                          context: context,
-                          builder: (context) => const AlertDialog(
-                            content: Row(
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(width: 20),
-                                Text("جاري فحص اتصال الراوتر والخط..."),
-                              ],
-                            ),
-                          ),
-                        );
-
-                        final result = await NetworkService.realPing(ip);
-                        Navigator.pop(context);
-
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text("تقرير الفحص الميداني"),
-                            content: Text("${result["message"]}\nالاستجابة: ${result["latency"]}"),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text("حسناً"),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // شريط الكشف التلقائي للشبكة الحالية (الميزة المطلوبة) //
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.purple.shade200),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.wifi, color: Colors.purple),
+                    SizedBox(width: 8),
+                    Text("حالة شبكة الميدان الحالية:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                isScanningNetwork
+                    ? const Row(
+                        children: [
+                          SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 10),
+                          Text("جاري فحص الشبكة والـ Gateway..."),
+                        ],
+                      )
+                    : Text(detectedNetworkInfo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text("الراوترات والمشتركون المحفوظون:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          ),
+          const SizedBox(height: 6),
+
+          // قائمة المشترين والراوترات //
+          Expanded(
+            child: routers.isEmpty
+                ? const Center(
+                    child: Text(
+                      "لا توجد راوترات محفوظة مسبقاً.\nاضغط على زر (+) بالأسفل لإضافة الراوتر المكتشف.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: routers.length,
+                    itemBuilder: (context, index) {
+                      final parts = routers[index].split('|');
+                      final name = parts.isNotEmpty ? parts[0] : "مشترك";
+                      final ip = parts.length > 1 ? parts[1] : "0.0.0.0";
+                      final type = parts.length > 2 ? parts[2] : "راوتر";
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: ListTile(
+                          leading: const Icon(Icons.router, color: Colors.purple),
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text("IP: $ip | النوع: $type"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.network_check, color: Colors.green),
+                            onPressed: () async {
+                              showDialog(
+                                context: context,
+                                builder: (context) => const AlertDialog(
+                                  content: Row(
+                                    children: [
+                                      CircularProgressIndicator(),
+                                      SizedBox(width: 20),
+                                      Text("جاري فحص اتصال الراوتر والخط..."),
+                                    ],
+                                  ),
+                                ),
+                              );
+
+                              final result = await NetworkService.realPing(ip);
+                              Navigator.pop(context);
+
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text("تقرير الفحص الميداني"),
+                                  content: Text("${result["message"]}\nالاستجابة: ${result["latency"]}"),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text("حسناً"),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.purple,
         foregroundColor: Colors.white,
@@ -107,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
-  final nameController = TextEditingController();
+  final nameController = TextEditingController(text: "راوتر المكتب / المشترك");
   final ipController = TextEditingController(text: "192.168.1.1");
   String selectedRouterType = 'Huawei ONT';
   bool autoConfigAdmin = true;
@@ -116,7 +191,7 @@ void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text("إضافة وحفظ راوتر المشترك", textAlign: TextAlign.right),
+        title: const Text("حفظ الراوتر المكتشف", textAlign: TextAlign.right),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -125,7 +200,7 @@ void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
               TextField(
                 controller: nameController,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "اسم المشترك", border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: "اسم المشترك أو الموقع", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -162,7 +237,7 @@ void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
               Navigator.pop(context);
               onRouterAdded();
             },
-            child: const Text("حفظ"),
+            child: const Text("حفظ السجل"),
           ),
         ],
       ),
