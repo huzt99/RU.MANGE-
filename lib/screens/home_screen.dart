@@ -1,125 +1,103 @@
-// الشاشة الرئيسية لإدارة الشبكات والتسجيل المحلي //
 import 'package:flutter/material.dart';
-import 'package:ru_mange/services/network_scanner_service.dart';
-import '../services/database_service.dart';
-import 'router_control_screen.dart';
+import 'package:ru_mange/services/database_service.dart';
+import 'package:ru_mange/screens/router_control_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final NetworkScannerService _scanner = NetworkScannerService();
-  bool _isScanning = false;
-  bool _isLoadingData = true;
-
-  // القائمة المشتركين //
-  List<Map<String, dynamic>> _subscribers = [];
-
-  final _nameController = TextEditingController();
+  List<Map<String, dynamic>> subscribers = [];
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // تأخير آمن لمنع أي انهيار لحظة الإقلاع ولحين اكتمال بناء الشاشة بالكامل //
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _loadSavedSubscribers();
-      }
+    _loadSubscribersData();
+  }
+
+  // تحميل قائمة المشتركين المخزنة //
+  Future<void> _loadSubscribersData() async {
+    setState(() => isLoading = true);
+    final data = await DatabaseService.loadSubscribers();
+    setState(() {
+      subscribers = data;
+      isLoading = false;
     });
   }
 
-  // تحميل المشتركين المحفوظة من الذاكرة مع حماية ضد الخطأ //
-  void _loadSavedSubscribers() async {
-    try {
-      final result = await DatabaseService.loadSubscribers();
-      if (mounted) {
-        setState(() {
-          _subscribers = result ?? []; // حماية تامة ضد الـ null لمنع الانهيار
-          _isLoadingData = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _subscribers = [];
-          _isLoadingData = false;
-        });
-      }
-    }
-  }
-
-  // دالة البحث والتعرف الآلي على شبكة الواي فاي //
-  void _autoDetectAndAdd() async {
-    setState(() => _isScanning = true);
-
-    String? detectedIp = await _scanner.getConnectedRouterGateway();
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
-    setState(() => _isScanning = false);
-
-    _nameController.text = "مشترك جديد (${detectedIp ?? '192.168.1.1'})";
+  // نافذة إضافة مشترك جديد تلقائياً للميدان //
+  void _showAddSubscriberDialog() {
+    final nameController = TextEditingController();
+    final ipController = TextEditingController(text: "192.168.1.1");
+    String selectedType = "Huawei ONT";
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.router, color: Colors.blueAccent),
-            const SizedBox(width: 10),
-            const Text("تم اكتشاف راوتر جديد"),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("العنوان المكتشف: ${detectedIp ?? '192.168.1.1'}"),
-            const SizedBox(height: 6),
-            const Text("النوع: تم التعرف عليه تلقائياً"),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: 'اسم المشترك أو ملاحظة',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        title: const Text("حفظ راوتر المشترك جديد", textAlign: TextAlign.right),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                textAlign: TextAlign.right,
+                decoration: const InputDecoration(
+                  labelText: "اسم المشترك (مثال: علي - حي المعلمين)",
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: ipController,
+                textAlign: TextAlign.right,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "عنوان IP الراوتر",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                decoration: const InputDecoration(
+                  labelText: "نوع الجهاز",
+                  border: OutlineInputBorder(),
+                ),
+                items: ["Huawei ONT", "TP-Link Archer", "MikroTik", "Ubiquiti PowerBeam", "غير ذلك"]
+                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) selectedType = val;
+                },
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            child: const Text("إلغاء"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
             onPressed: () async {
-              Map<String, dynamic> newSub = {
-                "name": _nameController.text,
-                "type": "Huawei/TP-Link Router",
-                "ip": detectedIp ?? "192.168.1.1",
-                "status": "متصل (جاهز للعمل)",
-              };
-
-              setState(() {
-                _subscribers.add(newSub);
-              });
-
-              await DatabaseService.saveSubscribers(_subscribers);
-
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('تم حفظ الراوتر بنجاح')),
-              );
+              if (nameController.text.isNotEmpty) {
+                await DatabaseService.addSubscriber(
+                  name: "المشترك: ${nameController.text}",
+                  type: selectedType,
+                  ip: ipController.text,
+                  status: "متصل (تم الحفظ حديثاً)",
+                );
+                Navigator.pop(context);
+                _loadSubscribersData(); // تحديث القائمة
+              }
             },
-            child: const Text('حفظ الآن', style: TextStyle(color: Colors.white)),
+            child: const Text("حفظ المشترك"),
           ),
         ],
       ),
@@ -129,108 +107,117 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text(
-          'إدارة شبكات المشتركين',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('إدارة شبكات المشتركين', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadSubscribersData,
+          ),
+        ],
       ),
-      body: _isLoadingData
+      body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // بطاقة الفحص والبحث التلقائي //
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("أهلاً بك، أيها الفني 🛠️", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                          const SizedBox(height: 5),
-                          Text("الشبكات المحفوظة: ${_subscribers.length}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ],
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // كارت الترحيب والإحصائيات //
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.blue, Colors.lightBlueAccent],
                       ),
-                    ],
-                  ),
-                ),
-
-                // قائمة المشتركين //
-                Expanded(
-                  child: _subscribers.isEmpty
-                      ? const Center(child: Text('لا توجد شبكات محفوظة حالياً. اضغط على بحث تلقائي لإضافة أول راوتر'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _subscribers.length,
-                          itemBuilder: (context, index) {
-                            final sub = _subscribers[index];
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(15),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 4))],
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.blue.withOpacity(0.1),
-                                  child: const Icon(Icons.router, color: Colors.blueAccent),
-                                ),
-                                title: Text(sub['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text("${sub['type']} • ${sub['ip']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                                    const SizedBox(height: 4),
-                                    Text(sub['status'], style: const TextStyle(color: Colors.green, fontSize: 12)),
-                                  ],
-                                ),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => RouterControlScreen(
-                                        subscriberName: sub['name'],
-                                        routerType: sub['type'],
-                                        routerIp: sub['ip'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                ),
-              ],
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text(
+                          "أهلاً بك، أيها الفني 🛠️",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "الشبكات المحفوظة: ${subscribers.length}",
+                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // قائمة المشتركين //
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: subscribers.length,
+                      itemBuilder: (context, index) {
+                        final item = subscribers[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.blueAccent,
+                              child: Icon(Icons.router, color: Colors.white),
+                            ),
+                            title: Text(
+                              item['name'] ?? '',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.right,
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text("${item['type']} • ${item['ip']}", style: const TextStyle(color: Colors.grey)),
+                                Text(
+                                  item['status'] ?? '',
+                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                            trailing: const Icon(Icons.arrow_back_ios_new, size: 16),
+                            onTap: () {
+                              // الانتقال للتحكم والتشخيص عن بُعد //
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RouterControlScreen(
+                                    subscriberName: item['name'] ?? '',
+                                    ipAddress: item['ip'] ?? '192.168.1.1',
+                                    routerType: item['type'] ?? 'Huawei ONT',
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
+      // زر الحفظ السريع / الكشف التلقائي //
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: "scanBtn",
+        onPressed: _showAddSubscriberDialog,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.blueAccent,
-        onPressed: _isScanning ? null : _autoDetectAndAdd,
-        label: _isScanning
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Text('بحث تلقائي', style: TextStyle(fontWeight: FontWeight.bold)),
-        icon: _isScanning ? null : const Icon(Icons.wifi_find),
+        foregroundColor: Colors.blue,
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text("إضافة/حفظ راوتر", style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
