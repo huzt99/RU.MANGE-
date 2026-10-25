@@ -1,6 +1,6 @@
-// الشاشة الرئيسية المربوطة بقاعدة البيانات المحلية والتخزين الدائم
+// الشاشة الرئيسية المرتبطة بإدارة الشبكات والتسجيل المحلي //
 import 'package:flutter/material.dart';
-import '../services/network_scanner_service.dart';
+import 'package:ru_mange/services/network_scanner_service.dart';
 import '../services/database_service.dart';
 import 'router_control_screen.dart';
 
@@ -14,21 +14,23 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isScanning = false;
   bool _isLoadingData = true;
 
-  // قائمة المشتركين
+  // قائمة المشتركين //
   List<Map<String, dynamic>> _subscribers = [];
-  
+
   final _nameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // تأجيل التحميل حتى يتم عرض الشاشة بالكامل ومنع أي انهيار فوري عند الإقلاع
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSavedSubscribers();
+    // تأخير آمن للتحميل لمنع أي انهيار لحظة الإقلاع ولحين اكتمال بناء الشاشة بالكامل //
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _loadSavedSubscribers();
+      }
     });
   }
 
-  // تحميل المشتركين المحفوظة من الذاكرة مع حماية تامة ضد الـ Crash
+  // تحميل المشتركين المحفوظة من الذاكرة مع حماية ضد الخطأ //
   void _loadSavedSubscribers() async {
     try {
       List<Map<String, dynamic>> loaded = await DatabaseService.loadSubscribers();
@@ -48,17 +50,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // دالة البحث التلقائي وإضافة الراوتر مع الحفظ
+  // دالة البحث والتعرف الآلي على شبكة الواي فاي //
   void _autoDetectAndAdd() async {
     setState(() => _isScanning = true);
-    
+
     String? detectedIp = await _scanner.getConnectedRouterGateway();
-    await Future.delayed(Duration(seconds: 1)); 
-    
+    await Future.delayed(const Duration(seconds: 1));
+
     if (!mounted) return;
     setState(() => _isScanning = false);
 
-    _nameController.text = "مشتـرك جديد (${detectedIp ?? '192.168.1.1'})";
+    _nameController.text = "مشترك جديد (${detectedIp ?? '192.168.1.1'})";
 
     showDialog(
       context: context,
@@ -66,9 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.router, color: Colors.blueAccent),
-            SizedBox(width: 10),
-            Text("تم اكتشاف راوتر جديد!"),
+            const Icon(Icons.router, color: Colors.blueAccent),
+            const SizedBox(width: 10),
+            const Text("تم اكتشاف راوتر جديد"),
           ],
         ),
         content: Column(
@@ -76,13 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("العنوان المكتشف: ${detectedIp ?? '192.168.1.1'}"),
-            SizedBox(height: 8),
-            Text("النوع: تم التعرف عليه تلقائياً"),
-            SizedBox(height: 12),
+            const SizedBox(height: 6),
+            const Text("النوع: تم التعرف عليه تلقائياً"),
+            const SizedBox(height: 12),
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: "اسم المشترك أو ملاحظة",
+                labelText: 'اسم المشترك أو ملاحظة',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
@@ -91,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("إلغاء", style: TextStyle(color: Colors.grey)),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -103,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 "name": _nameController.text,
                 "type": "Huawei/TP-Link Router",
                 "ip": detectedIp ?? "192.168.1.1",
-                "status": "متصل (جاهز للإدارة)",
+                "status": "متصل (جاهز للعمل)",
               };
 
               setState(() {
@@ -114,10 +116,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("تم حفظ الراوتر وربطه بنجاح!")),
+                const SnackBar(content: Text('تم حفظ الراوتر بنجاح')),
               );
             },
-            child: Text("حفظ وربط", style: TextStyle(color: Colors.white)),
+            child: const Text('حفظ الآن', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -127,26 +129,26 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        title: Text(
-          "إدارة شبكات المشتركين",
+        title: const Text(
+          'إدارة شبكات المشتركين',
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
       body: _isLoadingData
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // بطاقة الفحص والبحث التلقائي
+                // بطاقة الفحص والبحث التلقائي //
                 Container(
-                  margin: EdgeInsets.all(16),
-                  padding: EdgeInsets.all(20),
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -159,9 +161,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("أهلاً بك، أيها التقني 🛠️", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                          SizedBox(height: 5),
-                          Text("الشبكات المحفوظة: ${_subscribers.length}", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text("أهلاً بك، أيها الفني 🛠️", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                          const SizedBox(height: 5),
+                          Text("الشبكات المحفوظة: ${_subscribers.length}", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       FloatingActionButton.extended(
@@ -169,56 +171,56 @@ class _HomeScreenState extends State<HomeScreen> {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.blueAccent,
                         onPressed: _isScanning ? null : _autoDetectAndAdd,
-                        label: _isScanning 
-                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text("بحث تلقائي", style: TextStyle(fontWeight: FontWeight.bold)),
-                        icon: _isScanning ? null : Icon(Icons.wifi_find),
+                        label: _isScanning
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('بحث تلقائي', style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: _isScanning ? null : const Icon(Icons.wifi_find),
                       ),
                     ],
                   ),
                 ),
-                
-                // قائمة المشتركين
+
+                // قائمة المشتركين //
                 Expanded(
                   child: _subscribers.isEmpty
-                      ? Center(child: Text("لا توجد شبكات محفوظة حالياً. اضغط على بحث تلقائي لإضافة أول راوتر!"))
+                      ? const Center(child: Text('لا توجد شبكات محفوظة حالياً، اضغط على بحث تلقائي لإضافة أول راوتر'))
                       : ListView.builder(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: _subscribers.length,
                           itemBuilder: (context, index) {
                             final sub = _subscribers[index];
                             return Container(
-                              margin: EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(15),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: Offset(0, 3))],
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 3))],
                               ),
                               child: ListTile(
-                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 leading: CircleAvatar(
                                   backgroundColor: Colors.blue.withOpacity(0.1),
-                                  child: Icon(Icons.router, color: Colors.blueAccent),
+                                  child: const Icon(Icons.router, color: Colors.blueAccent),
                                 ),
-                                title: Text(sub["name"], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                title: Text(sub['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    SizedBox(height: 4),
-                                    Text("${sub["type"]} • ${sub["ip"]}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                                    SizedBox(height: 4),
-                                    Text(sub["status"], style: TextStyle(color: Colors.green[700], fontSize: 12, fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 4),
+                                    Text("${sub['type']} • ${sub['ip']}", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                                    const SizedBox(height: 4),
+                                    Text(sub['status'], style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w500)),
                                   ],
                                 ),
-                                trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
                                 onTap: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => RouterControlScreen(
-                                        subscriberName: sub["name"],
-                                        routerType: sub["type"],
-                                        routerIp: sub["ip"],
+                                        subscriberName: sub['name'],
+                                        routerType: sub['type'],
+                                        routerIp: sub['ip'],
                                       ),
                                     ),
                                   );
