@@ -18,7 +18,7 @@ class RouterManagerApp extends StatelessWidget {
         primarySwatch: Colors.purple,
         useMaterial3: true,
       ),
-      home: HomeScreen(),
+      home: const HomeScreen(), // تأكد أن اسم الكلاس هنا مطابق لاسم الكلاس الموجود في ملف home_screen.dart
     );
   }
 }
