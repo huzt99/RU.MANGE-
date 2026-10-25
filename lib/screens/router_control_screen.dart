@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RouterControlScreen extends StatefulWidget {
   final String subscriberName;
@@ -22,6 +23,30 @@ class _RouterControlScreenState extends State<RouterControlScreen> {
   
   final _ssidController = TextEditingController();
   final _passController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
+
+  // تحميل ملاحظات الصيانة الخاصة بهذا المشترك //
+  Future<void> _loadNotes() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notesController.text = prefs.getString('notes_${widget.subscriberName}') ?? '';
+    });
+  }
+
+  // حفظ ملاحظات الصيانة محلياً //
+  Future<void> _saveNotes() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('notes_${widget.subscriberName}', _notesController.text);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ تم حفظ سجل الصيانة والملاحظات بنجاح!"), backgroundColor: Colors.green),
+    );
+  }
 
   // محاكاة فحص البينك وكشف الأخطاء وضعف الخدمة //
   void _runPingTest() async {
@@ -171,6 +196,30 @@ class _RouterControlScreenState extends State<RouterControlScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 25),
+
+            // قسم سجل الصيانة والملاحظات الميدانية //
+            const Text("📝 سجل صيانة المشترك وملاحظات الفني", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _notesController,
+              maxLines: 3,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                hintText: "اكتب تفاصيل الصيانة هنا (مثلاً: تم تبديل الكابل، تغيير البورت، فحص الإشارة...)",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white),
+                onPressed: _saveNotes,
+                icon: const Icon(Icons.save),
+                label: const Text("حفظ سجل الصيانة للمشترك"),
               ),
             ),
             const SizedBox(height: 25),
