@@ -1,11 +1,10 @@
-// خدمة حفظ واسترجاع بيانات المشتركين محلياً على الجهاز - نسخة آمنة ضد الانهيار
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DatabaseService {
   static const String _storageKey = 'saved_subscribers_list';
 
-  // حفظ قائمة المشتركين
+  // حفظ قائمة المشتركين //
   static Future<void> saveSubscribers(List<Map<String, dynamic>> subscribers) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -16,7 +15,7 @@ class DatabaseService {
     }
   }
 
-  // استرجاع قائمة المشتركين المحفوظة مع حماية تامة ضد أخطاء الـ JSON
+  // استرجاع قائمة المشتركين مع حماية تامة ضد أخطاء الـ JSON //
   static Future<List<Map<String, dynamic>>> loadSubscribers() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -34,14 +33,14 @@ class DatabaseService {
     }
   }
 
-  // القائمة الافتراضية في حال عدم وجود بيانات أو حدوث خطأ
+  // القائمة الافتراضية في حال عدم وجود بيانات أو حدوث خطأ //
   static List<Map<String, dynamic>> _getDefaultSubscribers() {
     return [
       {
         "name": "المشترك: أحمد (حي الحسين)",
         "type": "Huawei ONT",
         "ip": "192.168.1.1",
-        "status": "ممتتاز (-19.2 dBm)",
+        "status": "ممتاز (-19.2 dBm)",
       },
       {
         "name": "المشترك: علي كريم (الرئيسية)",
