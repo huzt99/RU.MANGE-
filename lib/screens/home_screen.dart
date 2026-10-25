@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
       ),
       body: routers.isEmpty
-          const Center(
+          ? const Center(
               child: Text(
                 "لا توجد راوترات محفوظة.\nاضغط على زر (+) لإضافة أول راوتر للمشترك.",
                 textAlign: TextAlign.center,
@@ -57,7 +57,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     trailing: IconButton(
                       icon: const Icon(Icons.network_check, color: Colors.purple),
                       onPressed: () async {
-                        // فحص البينك الحقيقي عند الضغط //
                         showDialog(
                           context: context,
                           builder: (context) => const AlertDialog(
@@ -78,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text("تقرير الفحص الميداني"),
-                            content: Text(result["message"] + "\nالاستجابة: " + result["latency"]),
+                            content: Text("${result["message"]}\nالاستجابة: ${result["latency"]}"),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
@@ -98,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
         onPressed: () {
-          // استدعاء نافذة الإضافة الذكية التي صممناها سابقاً //
           showAddRouterDialog(context, () {
             loadRouters();
           });
@@ -108,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// دالة نافذة إضافة الراوتر الذكية //
 void showAddRouterDialog(BuildContext context, VoidCallback onRouterAdded) {
   final nameController = TextEditingController();
   final ipController = TextEditingController(text: "192.168.1.1");
