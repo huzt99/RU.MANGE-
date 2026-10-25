@@ -10,296 +10,245 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
   List<String> routers = [];
   bool isScanning = true;
-  String discoveredRouterIp = "جاري رصد آيب الراوتر المربوط...";
-  String networkStatusMsg = "جاري فحص شبكة الميدان لاكتشاف الراوتر و ONU...";
+  String discoveredIp = "192.168.1.1";
 
   @override
   void initState() {
     super.initState();
-    loadSavedRouters();
-    scanLocalRouter(); // بدء الاكتشاف التلقائي لآيب الراوتر عند الفتح
+    loadRouters();
+    scanNetwork();
   }
 
-  Future<void> loadSavedRouters() async {
+  Future<void> loadRouters() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      routers = prefs.getStringList('saved_routers') ?? [];
+      routers = prefs.getStringList('saved_routers') ?? [
+        "Living Room (AC1900)|192.168.1.1|Cudy",
+        "Bedroom (AX1800)|192.168.1.2|Huawei ONT",
+        "Office (PritzBox)|192.168.1.3|ZTE ONU"
+      ];
     });
   }
 
-  // دالة اكتشاف آيب الراوتر الحقيقي في شبكة الميدان
-  Future<void> scanLocalRouter() async {
-    setState(() {
-      isScanning = true;
-      networkStatusMsg = "جاري مسح الشبكة المحلية لاكتشاف الراوتر...";
-    });
-
-    String foundIp = await NetworkService.discoverRouterIP();
-
+  Future<void> scanNetwork() async {
+    setState(() => isScanning = true);
+    String ip = await NetworkService.discoverRouterIP();
     setState(() {
       isScanning = false;
-      discoveredRouterIp = foundIp;
-      networkStatusMsg = "تم رصد آيب الراوتر بنجاح: $discoveredRouterIp";
+      discoveredIp = ip;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A), // خلفية داكنة فخمة نفس الصورة
       appBar: AppBar(
-        title: const Text("RU-Mange | رادار آيب الراوتر والميدان", textAlign: TextAlign.right),
-        backgroundColor: Colors.purple,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: scanLocalRouter,
-            tooltip: "إعادة مسح واكتشاف الراوتر",
-          )
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // شريط رادار اكتشاف آيب الراوتر الحقيقي
-          Container(
-            padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.purple.shade300, width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.router, color: Colors.purple),
-                    const SizedBox(width: 8),
-                    const Text("راوتر الميدان المكتشف تلقائياً:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 15)),
-                    const Spacer(),
-                    if (!isScanning)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(6)),
-                        child: const Text("جاهز للدخول", style: TextStyle(color: Colors.white, fontSize: 11)),
-                      )
-                  ],
-                ),
-                const SizedBox(height: 8),
-                isScanning
-                    ? const Row(
-                        children: [
-                          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                          SizedBox(width: 12),
-                          Text("جاري فحص نطاقات الشبكة والـ IP...", style: TextStyle(fontSize: 13)),
-                        ],
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(networkStatusMsg, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text("الآيب الأساسي: $discoveredRouterIp", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            ),
-                            icon: const Icon(Icons.login, size: 16),
-                            label: const Text("حفظ ودخول", style: TextStyle(fontSize: 12)),
-                            onPressed: () {
-                              showAddRouterDialog(context, discoveredRouterIp, () {
-                                loadSavedRouters();
-                              });
-                            },
-                          )
-                        ],
-                      ),
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () {},
+        ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Column(
+              children: const [
+                Text("RouterHub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                Text("راوترهب", style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
               ],
             ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0),
+            child: Icon(Icons.security, color: Colors.cyanAccent, size: 28),
           ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // العنوان الفرعي: الراوترات المتصلة
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text("الراوترات المتصلة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                Text("All Routers Connected", style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 12),
 
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
-            child: Text("الراوترات والأجهزة المحفوظة:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          ),
+            // قائمة أفقية للراوترات (Living Room, Bedroom, Office)
+            SizedBox(
+              height: 95,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: routers.length,
+                itemBuilder: (context, index) {
+                  final parts = routers[index].split('|');
+                  String name = parts.isNotEmpty ? parts[0] : "Router";
+                  bool isSelected = index == 0;
 
-          // قائمة الأجهزة المحفوظة
-          Expanded(
-            child: routers.isEmpty
-                ? const Center(
-                    child: Text(
-                      "لا توجد أجهزة محفوظة.\nاضغط على 'حفظ ودخول' بالأعلى لحفظ آيب الراوتر المكتشف.",
-                      textAlign: TextStyle(fontSize: 13, color: Colors.grey),
-                      textAlign: TextAlign.center,
+                  return Container(
+                    width: 115,
+                    margin: const EdgeInsets.only(right: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF1E293B) : const Color(0xFF131C31),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected ? Colors.cyanAccent : Colors.white12,
+                        width: isSelected ? 1.5 : 1,
+                      ),
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: routers.length,
-                    itemBuilder: (context, index) {
-                      final parts = routers[index].split('|');
-                      final name = parts.isNotEmpty ? parts[0] : "راوتر المشترك";
-                      final ip = parts.length > 1 ? parts[1] : "0.0.0.0";
-                      final type = parts.length > 2 ? parts[2] : "راوتر / ONU";
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.router, color: Colors.cyanAccent, size: 24),
+                        const SizedBox(height: 6),
+                        Text(
+                          name,
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        const Text("متصل", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        elevation: 2,
-                        child: ListTile(
-                          leading: const Icon(Icons.wifi_tethering, color: Colors.purple, size: 28),
-                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text("آيب الراوتر: $ip\nالنوع: $type (موصول مع ONU/نانو)"),
-                          isThreeLine: true,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.network_check, color: Colors.green),
-                                tooltip: "فحص الاتصال",
-                                onPressed: () async {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => const AlertDialog(
-                                      content: Row(
-                                        children: [
-                                          CircularProgressIndicator(),
-                                          SizedBox(width: 20),
-                                          Text("جاري فحص استجابة الراوتر..."),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-
-                                  final res = await NetworkService.realPing(ip);
-                                  Navigator.pop(context);
-
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text("تقرير فحص الميدان"),
-                                      content: Text("${res["message"]}\nالاستجابة: ${res["latency"]}"),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text("حسناً")),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.admin_panel_settings, color: Colors.purple),
-                                tooltip: "الدخول لإدارة الراوتر والـ ONU",
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: Text("إدارة جهاز: $name"),
-                                      content: Text("جاري تجهيز الدخول إلى آيب الراوتر ($ip).\nومن خلاله يمكنك الوصول للـ ONU أو النانو المرتبط."),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء")),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text("فتح صفحة الأدمين للـ IP: $ip ...")),
-                                            );
-                                          },
-                                          child: const Text("فتح صفحة الإدارة (Admin)"),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+            // بطاقة حالة الشبكة الشاملة (Overall Network Health)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131C31),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text("حالة الشبكة: قوية", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text("Overall Network Health: Strong", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // رسم توضيحي شبكي للراطور والـ ONU والأجهزة
+                  Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B1120),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(Icons.hub, color: Colors.cyanAccent.withOpacity(0.4), size: 70),
+                        Positioned(
+                          bottom: 10,
+                          child: Row(
+                            children: const [
+                              Icon(Icons.computer, color: Colors.blueAccent, size: 18),
+                              SizedBox(width: 15),
+                              Icon(Icons.wifi_tethering, color: Colors.greenAccent, size: 22),
+                              SizedBox(width: 15),
+                              Icon(Icons.phone_android, color: Colors.cyanAccent, size: 18),
                             ],
                           ),
                         ),
-                      );
-                    },
+                        Positioned(
+                          top: 10,
+                          child: Text("الآيب النشط: $discoveredIp", style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        )
+                      ],
+                    ),
                   ),
-          ),
-        ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // أزرار التحكم الميداني الأربعة (إدارة الشبكة، شبكة الضيوف، التحكم الأبوي، اختبار السرعة)
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics( ),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.6,
+              children: [
+                _buildActionCard("إدارة الشبكة", "Manage Network", Icons.tune, Colors.cyanAccent, () {
+                  // فتح إعدادات الأدمين للراوتر والـ ONU
+                }),
+                _buildActionCard("شبكة الضيوف", "Guest Network", Icons.people_outline, Colors.purpleAccent, () {}),
+                _buildActionCard("التحكم الأبوي", "Parental Control", Icons.lock_outline, Colors.orangeAccent, () {}),
+                _buildActionCard("اختبار السرعة", "Speed Test", Icons.speed, Colors.greenAccent, () {
+                  scanNetwork();
+                }),
+              ],
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.purple,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          showAddRouterDialog(context, discoveredRouterIp, () {
-            loadSavedRouters();
-          });
-        },
+      // شريط التنقل السفلي الاحترافي
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: const Color(0xFF0B1120),
+        selectedItemColor: Colors.cyanAccent,
+        unselectedItemColor: Colors.grey,
+        currentIndex: _selectedIndex,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "رئيسية"),
+          BottomNavigationBarItem(icon: Icon(Icons.devices), label: "الأجهزة"),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: "الإعدادات"),
+          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: "المزيد"),
+        ],
       ),
     );
   }
-}
 
-void showAddRouterDialog(BuildContext context, String defaultIp, VoidCallback onAdded) {
-  final nameController = TextEditingController(text: "راوتر المكتب / المشترك");
-  final ipController = TextEditingController(text: defaultIp);
-  String selectedType = 'Cudy / راوتر رئيسي';
-
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text("حفظ آيب الراوتر والوصول للـ ONU", textAlign: TextAlign.right),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              TextField(
-                controller: nameController,
-                textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "اسم المشترك أو الموقع", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ipController,
-                textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "آيب الراوتر المكتشف", border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                items: ['Cudy / راوتر رئيسي', 'Huawei ONT', 'ZTE ONU', 'TP-Link Router', 'MikroTik', 'Ubiquiti Nano/Beam', 'آيب مخصص / Static', 'غير ذلك']
-                    .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                    .toList(),
-                onChanged: (val) => setState(() => selectedType = val!),
-              ),
-            ],
-          ),
+  Widget _buildActionCard(String titleAr, String titleEn, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF131C31),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white12),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("إلغاء")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (nameController.text.isEmpty || ipController.text.isEmpty) return;
-              final prefs = await SharedPreferences.getInstance();
-              List<String> list = prefs.getStringList('saved_routers') ?? [];
-              list.add("${nameController.text}|${ipController.text}|$selectedType");
-              await prefs.setStringList('saved_routers', list);
-              Navigator.pop(context);
-              onAdded();
-            },
-            child: const Text("حفظ السجل"),
-          ),
-        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(titleAr, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                Icon(icon, color: color, size: 22),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(titleEn, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
