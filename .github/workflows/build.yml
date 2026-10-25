@@ -1,9 +1,8 @@
-name: Build Android APK
+name: Build Flutter APK
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   build:
@@ -11,7 +10,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Java
         uses: actions/setup-java@v3
@@ -24,15 +23,19 @@ jobs:
         with:
           flutter-version: '3.19.0'
           channel: 'stable'
+          cache: true
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Generate Launcher Icons
+        run: dart run flutter_launcher_icons:main
 
       - name: Build APK
         run: flutter build apk --debug --no-tree-shake-icons
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: RU-MANGE-App-APK
+          name: RU-Mange-App
           path: build/app/outputs/flutter-apk/app-debug.apk
