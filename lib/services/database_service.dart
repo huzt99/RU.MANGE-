@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DatabaseService {
-  static const String _storageKey = 'saved_subscribers_list';
+  static const String _storageKey = 'saved_subscribers_list_v2';
 
-  // حفظ قائمة المشتركين //
+  // حفظ قائمة المشتركين مع تفاصيل الراوتر والـ IP والإشارة //
   static Future<void> saveSubscribers(List<Map<String, dynamic>> subscribers) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -15,7 +15,7 @@ class DatabaseService {
     }
   }
 
-  // استرجاع قائمة المشتركين مع حماية تامة ضد أخطاء الـ JSON //
+  // استرجاع قائمة المشتركين المحفوظين //
   static Future<List<Map<String, dynamic>>> loadSubscribers() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -33,7 +33,27 @@ class DatabaseService {
     }
   }
 
-  // القائمة الافتراضية في حال عدم وجود بيانات أو حدوث خطأ //
+  // إضافة مشترك جديد أو راوتر تم الاتصال به حديثاً للميدان //
+  static Future<void> addSubscriber({
+    required String name,
+    required String type,
+    required String ip,
+    required String status,
+  }) async {
+    List<Map<String, dynamic>> currentList = await loadSubscribers();
+    
+    // إضافة المشترك الجديد بالبداية //
+    currentList.insert(0, {
+      "name": name,
+      "type": type,
+      "ip": ip,
+      "status": status,
+    });
+
+    await saveSubscribers(currentList);
+  }
+
+  // القائمة الافتراضية //
   static List<Map<String, dynamic>> _getDefaultSubscribers() {
     return [
       {
