@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ru_mange/services/network_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,15 +11,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   List<Map<String, String>> routersList = [];
-  bool isScanning = true;
-  String discoveredIp = "192.168.1.1";
   int selectedRouterIndex = 0;
 
   @override
   void initState() {
     super.initState();
     loadRoutersFromStorage();
-    autoDetectNetworkRouter();
   }
 
   Future<void> loadRoutersFromStorage() async {
@@ -34,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return {
             "name": parts.isNotEmpty ? parts[0] : "راوتر المشترك",
             "ip": parts.length > 1 ? parts[1] : "192.168.1.1",
-            "type": parts.length > 2 ? parts[2] : "راوتر رئيسي مع ONU",
+            "type": parts.length > 2 ? parts[2] : "راوتر مع ONU / نانو",
             "user": parts.length > 3 ? parts[3] : "admin",
             "pass": parts.length > 4 ? parts[4] : "admin",
           };
@@ -49,45 +45,25 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList('saved_routers', formatted);
   }
 
-  Future<void> autoDetectNetworkRouter() async {
-    setState(() => isScanning = true);
-    String ip = await NetworkService.discoverRouterIP();
-    setState(() {
-      isScanning = false;
-      discoveredIp = ip;
-    });
-
-    bool exists = routersList.any((r) => r['ip'] == ip);
-    if (!exists && ip.isNotEmpty) {
-      _showNewDeviceDetectedDialog(ip);
-    }
-  }
-
-  void _showNewDeviceDetectedDialog(String detectedIp) {
-    final nameController = TextEditingController(text: "راوتر الشبكة المكتشف");
-    final ipController = TextEditingController(text: detectedIp);
+  // نافذة إدخال آيب الراوتر الحقيقي يدوياً (الذي يتصل به الفني في الموقع)
+  void _showAddRealRouterDialog() {
+    final nameController = TextEditingController(text: "مشترك ميداني جديد");
+    final ipController = TextEditingController(text: "192.168.10.1"); // الآيب الحقيقي الذي تدخله أنت
     final userController = TextEditingController(text: "admin");
     final passController = TextEditingController(text: "admin");
 
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF131C31),
-        title: Row(
-          children: const [
-            Icon(Icons.router, color: Colors.cyanAccent),
-            SizedBox(width: 8),
-            Text("تم اكتشاف راوتر الشبكة!", style: TextStyle(color: Colors.white, fontSize: 15)),
-          ],
-        ),
+        title: const Text("إضافة راوتر الميدان والـ ONU", style: TextStyle(color: Colors.white, fontSize: 15), textAlign: TextAlign.right),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text("آيب الراوتر المحلي: $detectedIp", style: const TextStyle(color: Colors.greenAccent, fontSize: 12), textAlign: TextAlign.right),
-              const SizedBox(height: 12),
+              const Text("أدخل آيب الراوتر الحقيقي المتصل به (مثال: 192.168.10.1)", style: TextStyle(color: Colors.grey, fontSize: 11), textAlign: TextAlign.right),
+              const SizedBox(height: 10),
               TextField(
                 controller: nameController,
                 style: const TextStyle(color: Colors.white),
@@ -99,14 +75,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: ipController,
                 style: const TextStyle(color: Colors.white),
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "آيب الراوتر (Gateway)", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "آيب الراوتر الفعلي (Gateway)", labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: userController,
                 style: const TextStyle(color: Colors.white),
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "يوزر الأدمين للراوتر", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "يوزر الدخول (Admin)", labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -114,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(color: Colors.white),
                 obscureText: true,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "باسورد الأدمين للراوتر", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "كلمة المرور (Password)", labelStyle: TextStyle(color: Colors.grey)),
               ),
             ],
           ),
@@ -122,17 +98,17 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("تخطي", style: TextStyle(color: Colors.grey)),
+            child: const Text("إلغاء", style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
             onPressed: () {
-              if (nameController.text.isEmpty) return;
+              if (nameController.text.isEmpty || ipController.text.isEmpty) return;
               setState(() {
                 routersList.add({
                   "name": nameController.text,
                   "ip": ipController.text,
-                  "type": "راوتر مع Gateway للـ ONU",
+                  "type": "راوتر رئيسي مع ONU / نانو",
                   "user": userController.text,
                   "pass": passController.text,
                 });
@@ -141,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
               saveRoutersToStorage();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("تم حفظ الراوتر في القائمة العلوية بنجاح!")),
+                const SnackBar(content: Text("تم حفظ الراوتر الحقيقي وظهوره في القائمة العلوية بنجاح!")),
               );
             },
             child: const Text("حفظ الجهاز"),
@@ -154,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeTab() {
     final activeRouter = routersList.isNotEmpty
         ? routersList[selectedRouterIndex]
-        : {"name": "راوتر الشبكة الحالي", "ip": discoveredIp, "type": "جهاز جديد", "user": "admin", "pass": "admin"};
+        : {"name": "لا يوجد جهاز محفوظ", "ip": "192.168.10.1", "type": "اضغط (+) لإضافة جهاز", "user": "admin", "pass": "admin"};
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -175,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 100,
             child: routersList.isEmpty
                 ? Center(
-                    child: Text("الآيب الحالي: $discoveredIp\nاضغط (+) لحفظ الراوتر", 
+                    child: Text("لم تقم بحفظ أي جهاز بعد.\nاضغط على زر (+) بالأعلى لإضافة الراوتر الحقيقي.", 
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
@@ -259,9 +235,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Icon(Icons.hub, color: Colors.cyanAccent, size: 30),
                       const SizedBox(height: 4),
-                      Text("الراوتر والـ Gateway للـ ONU", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text("الراوتر والـ Gateway (${activeRouter['ip']})", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      const Text("افتح الراوتر لترى Gateway الربط مع الأوني/النانو", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                      const Text("افتح الراوتر لمعرفة بوابة الربط مع الأوني/النانو", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
                     ],
                   ),
                 ),
@@ -271,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
                     icon: const Icon(Icons.login, size: 18),
-                    label: Text("فتح صفحة الراوتر ومعرفة Gateway (${activeRouter['ip']})", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    label: Text("فتح صفحة الراوتر الحقيقي (${activeRouter['ip']})", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                     onPressed: () {
                       _showAdminLoginDialog(activeRouter['name']!, activeRouter['ip']!, activeRouter['user']!, activeRouter['pass']!);
                     },
@@ -291,18 +267,10 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSpacing: 12,
             childAspectRatio: 1.6,
             children: [
-              _buildActionCard("إدارة الشبكة", "Manage Network", Icons.tune, Colors.cyanAccent, () {
-                _showNewDeviceDetectedDialog(discoveredIp);
-              }),
-              _buildActionCard("شبكة الضيوف", "Guest Network", Icons.people_outline, Colors.purpleAccent, () {
-                _showGuestNetworkModal();
-              }),
-              _buildActionCard("التحكم الأبوي", "Parental Control", Icons.lock_outline, Colors.orangeAccent, () {
-                _showParentalControlModal();
-              }),
-              _buildActionCard("اختبار السرعة", "Speed Test", Icons.speed, Colors.greenAccent, () {
-                _showSpeedTestModal();
-              }),
+              _buildActionCard("إدارة الشبكة", "Manage Network", Icons.tune, Colors.cyanAccent, _showAddRealRouterDialog),
+              _buildActionCard("شبكة الضيوف", "Guest Network", Icons.people_outline, Colors.purpleAccent, () {}),
+              _buildActionCard("التحكم الأبوي", "Parental Control", Icons.lock_outline, Colors.orangeAccent, () {}),
+              _buildActionCard("اختبار السرعة", "Speed Test", Icons.speed, Colors.greenAccent, () {}),
             ],
           ),
         ],
@@ -311,88 +279,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDevicesTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("الأجهزة والمنظومات المتصلة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 10),
-          _buildDeviceTile("الراوتر المحلي (Gateway)", discoveredIp, "00:1A:2C:3B:4D:5E", Icons.router, Colors.cyanAccent, isOnline: true),
-          _buildDeviceTile("منظومة ONU / النانو الضوئي", "192.168.100.1", "C8:3A:35:88:99:AA", Icons.hub, Colors.purpleAccent, isOnline: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeviceTile(String name, String ip, String mac, IconData icon, Color color, {required bool isOnline}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131C31),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Icon(icon, color: color)),
-        title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        subtitle: Text("IP: $ip | MAC: $mac", style: const TextStyle(color: Colors.grey, fontSize: 10)),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isOnline ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(isOnline ? "متصل" : "غير متصل", style: TextStyle(color: isOnline ? Colors.greenAccent : Colors.grey, fontSize: 10)),
-        ),
-      ),
-    );
+    return const Center(child: Text("قائمة الأجهزة المتصلة", style: TextStyle(color: Colors.white)));
   }
 
   Widget _buildSettingsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text("إعدادات البرنامج والميدان", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 16),
-        _buildSettingTile("إعادة فحص واكتشاف الراوتر", "البحث عن الراوتر المتصل حالياً", Icons.refresh, autoDetectNetworkRouter),
-        _buildSettingTile("مسح الأجهزة المخزنة", "تصفير السجلات المحلية", Icons.delete_sweep, () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.remove('saved_routers');
-          setState(() => routersList.clear());
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم مسح الأجهزة المخزنة!")));
-        }),
-      ],
-    );
+    return const Center(child: Text("الإعدادات", style: TextStyle(color: Colors.white)));
   }
 
   Widget _buildMoreTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text("أدوات الفني المتقدمة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 16),
-        _buildSettingTile("فحص الاستجابة (Ping)", "التحقق من اتصال الراوتر والـ ONU", Icons.network_check, () => _showSpeedTestModal()),
-      ],
-    );
-  }
-
-  Widget _buildSettingTile(String title, String subtitle, IconData icon, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131C31),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.cyanAccent),
-        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
-        onTap: onTap,
-      ),
-    );
+    return const Center(child: Text("المزيد من الأدوات", style: TextStyle(color: Colors.white)));
   }
 
   void _showAdminLoginDialog(String name, String ip, String user, String pass) {
@@ -405,12 +300,12 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("آيب الراوتر الرئيسي: $ip", style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+            Text("الآيب الحقيقي للراوتر: $ip", style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text("يوزر الدخول: $user", style: const TextStyle(color: Colors.white70, fontSize: 12)),
             Text("كلمة المرور: $pass", style: const TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 12),
-            const Text("من خلال فتح صفحة إعدادات هذا الراوتر، ستتمكن من رؤية الـ Gateway الذي يربط الراوتر مع الـ (ONU / النانو) والتحكم بهما بكل سهولة.", style: TextStyle(color: Colors.grey, fontSize: 11)),
+            const Text("من خلال فتح صفحة الراوتر عبر هذا الآيب، ستتمكن من رؤية الـ Gateway والوصول المباشر للـ ONU أو النانو.", style: TextStyle(color: Colors.grey, fontSize: 11)),
           ],
         ),
         actions: [
@@ -420,120 +315,12 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("فتح صفحة إعدادات الراوتر على الآيب: http://$ip ...")),
+                SnackBar(content: Text("جاري فتح واجهة الراوتر على الآيب الحقيقي: http://$ip ...")),
               );
             },
             child: const Text("فتح صفحة الأدمين"),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showGuestNetworkModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF131C31),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("شبكة الضيوف (Guest Network)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              title: const Text("تفعيل شبكة الضيوف", style: TextStyle(color: Colors.white, fontSize: 13)),
-              value: true,
-              activeColor: Colors.purpleAccent,
-              onChanged: (val) {},
-            ),
-            const TextField(
-              style: TextStyle(color: Colors.white),
-              decoration: InputDecoration(labelText: "اسم الشبكة (SSID)", labelStyle: TextStyle(color: Colors.grey)),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم حفظ إعدادات شبكة الضيوف!")));
-                },
-                child: const Text("حفظ الإعدادات"),
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSpeedTestModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF131C31),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("اختبار استجابة الخط (Ping)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 20),
-            const Icon(Icons.speed, color: Colors.greenAccent, size: 50),
-            const SizedBox(height: 10),
-            const Text("الاستجابة الحقيقية: 4 ms", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black),
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم فحص الاستجابة بنجاح!")));
-              },
-              child: const Text("إعادة الفحص"),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showParentalControlModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF131C31),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("نظام التحكم الأبوي", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              title: const Text("حظر المواقع غير المرغوبة", style: TextStyle(color: Colors.white, fontSize: 13)),
-              value: true,
-              activeColor: Colors.orangeAccent,
-              onChanged: (val) {},
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.black),
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تطبيق حماية التحكم الأبوي!")));
-                },
-                child: const Text("تطبيق الحماية"),
-              ),
-            )
-          ],
-        ),
       ),
     );
   }
@@ -582,23 +369,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
-          onPressed: autoDetectNetworkRouter,
-          tooltip: "إعادة فحص واكتشاف الشبكة الحقيقية",
-        ),
         title: Column(
           children: const [
             Text("RouterHub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("RU-Mange | رادار الميدان الحقيقي", style: TextStyle(color: Colors.cyanAccent, fontSize: 11)),
+            Text("RU-Mange | إدارة راوترات الميدان", style: TextStyle(color: Colors.cyanAccent, fontSize: 11)),
           ],
         ),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle, color: Colors.cyanAccent),
-            onPressed: () => _showNewDeviceDetectedDialog(discoveredIp),
-            tooltip: "إضافة جهاز يدوي",
+            onPressed: _showAddRealRouterDialog,
+            tooltip: "إضافة راوتر يدوي",
           ),
         ],
       ),
