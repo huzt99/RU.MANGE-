@@ -1,7 +1,6 @@
 name: ru_mange
-description: "نظام إدارة وصيانة شبكات الإنترنت والميدان للفنيين"
-publish_to: 'none' # Prevent accidental publishing to pub.dev.
-
+description: A professional tool for ISP technicians.
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -10,20 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
   shared_preferences: ^2.2.2
+  network_info_plus: ^5.0.0
   http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
-
-flutter_launcher_icons:
-  image_path: "assets/icon/icon.png"
-  android: true
-  ios: true
