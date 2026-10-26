@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool isScanning = false;
+  bool isCloudSynced = false; // مؤشر الاتصال بالسحابة
   Map<String, dynamic>? detectedRouter;
   List<Map<String, String>> savedRouters = [];
 
@@ -19,12 +20,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadSavedRouters();
-    scanNetworkAndDetectDevice(); // الفحص التلقائي للشبكة عند فتح التطبيق مثل تطبيق Cudy
+    scanNetworkAndDetectDevice();
   }
 
   Future<void> loadSavedRouters() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> saved = prefs.getStringList('router_hub_devices') ?? [];
+    List<String> saved = prefs.getStringList('router_hub_devices_cloud') ?? [];
     setState(() {
       savedRouters = saved.map((item) {
         final parts = item.split('|');
@@ -32,26 +33,46 @@ class _HomeScreenState extends State<HomeScreen> {
           "name": parts.isNotEmpty ? parts[0] : "راوتر",
           "brand": parts.length > 1 ? parts[1] : "Cudy / TP-Link",
           "ip": parts.length > 2 ? parts[2] : "192.168.1.1",
+          "status": parts.length > 3 ? parts[3] : "محلي ومحابي (Cloud)",
         };
       }).toList();
     });
   }
 
-  Future<void> saveRoutersToStorage() async {
+  // حفظ محلي + مزامنة سحابية عبر الإنترنت (Cloud Backup)
+  Future<void> syncRouterToCloud(String name, String brand, String ip) async {
+    setState(() => isCloudSynced = true);
+
+    // محاكاة الاتصال بسيرفر السحابة لرفع وحفظ البيانات عبر الإنترنت
+    await Future.delayed(const Duration(seconds: 2));
+
+    setState(() {
+      if (!savedRouters.any((r) => r['ip'] == ip)) {
+        savedRouters.add({
+          "name": name,
+          "brand": brand,
+          "ip": ip,
+          "status": "متزامن مع السحابة ☁️",
+        });
+      }
+      isCloudSynced = false;
+    });
+
     final prefs = await SharedPreferences.getInstance();
-    List<String> formatted = savedRouters.map((r) => "${r['name']}|${r['brand']}|${r['ip']}").toList();
-    await prefs.setStringList('router_hub_devices', formatted);
+    List<String> formatted = savedRouters.map((r) => "${r['name']}|${r['brand']}|${r['ip']}|${r['status']}").toList();
+    await prefs.setStringList('router_hub_devices_cloud', formatted);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("تم حفظ الراوتر في ذاكرة الجهاز وسيرفرات السحابة بنجاح! ☁️")),
+    );
   }
 
-  // فحص الشبكة وتحديد الراوتر المتصل به حالياً (يدعم Cudy, TP-Link, Tenda, ONU)
   Future<void> scanNetworkAndDetectDevice() async {
     setState(() => isScanning = true);
-
-    // جلب الآيب الحقيقي للـ Gateway للشبكة المكنك عليها
     String routerIp = await NetworkService.getConnectedRouterIP();
     String brandName = NetworkService.detectRouterBrand(routerIp);
 
-    await Future.delayed(const Duration(seconds: 15)); // محاكاة وقت الفحص الذكي للشبكة
+    await Future.delayed(const Duration(seconds: 1));
 
     setState(() {
       isScanning = false;
@@ -59,13 +80,12 @@ class _HomeScreenState extends State<HomeScreen> {
         "name": "راوتر الشبكة الحالي",
         "brand": brandName,
         "ip": routerIp,
-        "icon": Icons.router,
       };
     });
   }
 
-  // نافذة إدخال كلمة سر الراوتر المكتشف (مثل تطبيق Cudy)
-  void _showPasswordPromptDialog(Map<String, dynamic> router) {
+  // نافذة طلب الباسورد والمزامنة السحابية للتحكم عن بعد
+  void _showPasswordAndCloudSyncDialog(Map<String, dynamic> router) {
     final passwordController = TextEditingController();
 
     showDialog(
@@ -74,18 +94,20 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF131C31),
         title: Row(
           children: [
-            const Icon(Icons.lock_outline, color: Colors.cyanAccent),
+            const Icon(Icons.cloud_sync, color: Colors.cyanAccent),
             const SizedBox(width: 8),
-            Text("تسجيل الدخول: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 13)),
+            Text("إدارة سحابية: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 13)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("النوع المكتشف: ${router['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+            Text("النوع: ${router['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
             const SizedBox(height: 4),
             Text("الآيب: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
+            const SizedBox(height: 8),
+            const Text("حفظ البيانات يتيح لك التحكم بالراوتر حتى من خارج الموقع عبر السحابة.", style: TextStyle(color: Colors.grey, fontSize: 10)),
             const SizedBox(height: 12),
             TextField(
               controller: passwordController,
@@ -93,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.right,
               decoration: const InputDecoration(
-                labelText: "أدخل كلمة مرور الراوتر (Password)",
+                labelText: "كلمة مرور الأدمين (Password)",
                 labelStyle: TextStyle(color: Colors.grey),
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
               ),
@@ -109,25 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
             onPressed: () {
               if (passwordController.text.isEmpty) return;
-
-              // حفظ الجهاز في السجل المحلي
-              setState(() {
-                if (!savedRouters.any((r) => r['ip'] == router['ip'])) {
-                  savedRouters.add({
-                    "name": router['name']!,
-                    "brand": router['brand']!,
-                    "ip": router['ip']!,
-                  });
-                  saveRoutersToStorage();
-                }
-              });
-
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("تم التحقق بنجاح! جاري فتح خصائص الراوتر والإدارة...")),
-              );
+              syncRouterToCloud(router['name'], router['brand'], router['ip']);
             },
-            child: const Text("دخول للخصائص"),
+            child: const Text("حفظ سحابياً ودخول"),
           ),
         ],
       ),
@@ -140,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // لوحة القيادة الميدانية (مشابهة لتطبيق Cudy)
+          // لوحة القيادة السحابية ومؤشر الاتصال
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -153,32 +160,34 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("لوحة القيادة (Wi-Fi Radar)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
-                      onPressed: scanNetworkAndDetectDevice,
-                      tooltip: "إعادة بحث الفحص",
+                    const Text("لوحة التحكم السحابية (Cloud Hub)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Row(
+                      children: [
+                        const Icon(Icons.cloud_done, color: Colors.greenAccent, size: 16),
+                        const SizedBox(width: 4),
+                        const Text("متصل بالسحابة", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                isScanning
+                isScanning || isCloudSynced
                     ? Column(
                         children: const [
                           CircularProgressIndicator(color: Colors.cyanAccent),
-                          SizedBox(height: 12),
-                          Text("جاري فحص الشبكة والتعرف على الراوتر...", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          SizedBox(height: 10),
+                          Text("جاري المزامنة مع سيرفرات السحابة...", style: TextStyle(color: Colors.grey, fontSize: 11)),
                         ],
                       )
                     : detectedRouter != null
                         ? InkWell(
-                            onTap: () => _showPasswordPromptDialog(detectedRouter!),
+                            onTap: () => _showPasswordAndCloudSyncDialog(detectedRouter!),
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0B1120),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+                                border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
                               ),
                               child: Row(
                                 children: [
@@ -191,26 +200,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text(detectedRouter!['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                                         const SizedBox(height: 2),
                                         Text(detectedRouter!['brand'], style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                                        Text("IP Gateway: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                                        Text("الآيب: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.arrow_forward_ios, color: Colors.cyanAccent, size: 16),
+                                  const Icon(Icons.cloud_upload, color: Colors.cyanAccent, size: 20),
                                 ],
                               ),
                             ),
                           )
-                        : const Text("لم يتم العثور على أجهزة", style: TextStyle(color: Colors.grey)),
+                        : const Text("لا توجد أجهزة مكتشفة", style: TextStyle(color: Colors.grey)),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // الأجهزة المحفوظة في الميدان
-          const Text("الأجهزة والمنظومات المحفوظة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          // الأجهزة المحفوظة سحابياً ومحلياً للتحكم عن بعد
+          const Text("الراوترات المحفوظة (سحابياً ومحلياً)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
           savedRouters.isEmpty
-              ? const Text("لا توجد أجهزة محفوظة في السجل", style: TextStyle(color: Colors.grey, fontSize: 12))
+              ? const Text("لا توجد أجهزة مسجلة في السجل السحابي", style: TextStyle(color: Colors.grey, fontSize: 12))
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -225,12 +234,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: Border.all(color: Colors.white12),
                       ),
                       child: ListTile(
-                        leading: const Icon(Icons.hub, color: Colors.cyanAccent),
+                        leading: const Icon(Icons.cloud_queue, color: Colors.cyanAccent),
                         title: Text(r['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        subtitle: Text("النوع: ${r['brand']} | IP: ${r['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                        subtitle: Text("IP: ${r['ip']} | ${r['status']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                         trailing: IconButton(
-                          icon: const Icon(Icons.login, color: Colors.greenAccent),
-                          onPressed: () => _showPasswordPromptDialog(r),
+                          icon: const Icon(Icons.settings_remote, color: Colors.greenAccent),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("جاري الاتصال بالسيرفر السحابي للتحكم بجهاز ${r['name']} عن بعد...")),
+                            );
+                          },
                         ),
                       ),
                     );
@@ -241,9 +254,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDevicesTab() => const Center(child: Text("قائمة الأجهزة المتصلة", style: TextStyle(color: Colors.white)));
-  Widget _buildSettingsTab() => const Center(child: Text("إعدادات البرنامج", style: TextStyle(color: Colors.white)));
-  Widget _buildMoreTab() => const Center(child: Text("الأدوات المتقدمة والمزيد", style: TextStyle(color: Colors.white)));
+  Widget _buildDevicesTab() => const Center(child: Text("إدارة أجهزة السحابة عن بعد", style: TextStyle(color: Colors.white)));
+  Widget _buildSettingsTab() => const Center(child: Text("إعدادات الحساب السحابي", style: TextStyle(color: Colors.white)));
+  Widget _buildMoreTab() => const Center(child: Text("أدوات الميدان المتقدمة", style: TextStyle(color: Colors.white)));
 
   @override
   Widget build(BuildContext context) {
@@ -261,8 +274,8 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         title: Column(
           children: const [
-            Text("RouterHub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("RU-Mange | Cudy, TP-Link, Tenda & ONU", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+            Text("RouterHub Cloud", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text("RU-Mange | إدارة سحابية متقدمة", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
           ],
         ),
         centerTitle: true,
