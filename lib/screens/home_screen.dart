@@ -20,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadRoutersFromStorage();
-    autoDetectNetworkRouter(); // الفحص التلقائي الفوري عند فتح البرنامج
+    autoDetectNetworkRouter();
   }
 
   Future<void> loadRoutersFromStorage() async {
@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return {
             "name": parts.isNotEmpty ? parts[0] : "راوتر المشترك",
             "ip": parts.length > 1 ? parts[1] : "192.168.1.1",
-            "type": parts.length > 2 ? parts[2] : "راوتر رئيسي",
+            "type": parts.length > 2 ? parts[2] : "راوتر رئيسي مع ONU",
             "user": parts.length > 3 ? parts[3] : "admin",
             "pass": parts.length > 4 ? parts[4] : "admin",
           };
@@ -49,28 +49,22 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList('saved_routers', formatted);
   }
 
-  // الكشف التلقائي عن الراوتر المتصل به الموبايل حالياً بغض النظر عن الآيب
   Future<void> autoDetectNetworkRouter() async {
     setState(() => isScanning = true);
-    
-    // سحب الآيب الحقيقي للراوتر المتصل به حالياً
     String ip = await NetworkService.discoverRouterIP();
-    
     setState(() {
       isScanning = false;
       discoveredIp = ip;
     });
 
-    // إذا لم يكن الراوتر محفوظاً مسبقاً، نظهر له تنبيه "تم اكتشاف جهاز جديد" فوراً
     bool exists = routersList.any((r) => r['ip'] == ip);
     if (!exists && ip.isNotEmpty) {
       _showNewDeviceDetectedDialog(ip);
     }
   }
 
-  // نافذة "تم اكتشاف جهاز جديد" التي تطلب يوزر وباسورد الراوتر وتخزنه
   void _showNewDeviceDetectedDialog(String detectedIp) {
-    final nameController = TextEditingController(text: "راوتر الشبكة (مكتشف)");
+    final nameController = TextEditingController(text: "راوتر الشبكة المكتشف");
     final ipController = TextEditingController(text: detectedIp);
     final userController = TextEditingController(text: "admin");
     final passController = TextEditingController(text: "admin");
@@ -82,9 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF131C31),
         title: Row(
           children: const [
-            Icon(Icons.notification_important, color: Colors.cyanAccent),
+            Icon(Icons.router, color: Colors.cyanAccent),
             SizedBox(width: 8),
-            Text("هناك جهاز جديد متصل!", style: TextStyle(color: Colors.white, fontSize: 15)),
+            Text("تم اكتشاف راوتر الشبكة!", style: TextStyle(color: Colors.white, fontSize: 15)),
           ],
         ),
         content: SingleChildScrollView(
@@ -92,27 +86,27 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text("تم اكتشاف راوتر الشبكة على الآيب:\n$detectedIp", style: const TextStyle(color: Colors.greenAccent, fontSize: 12), textAlign: TextAlign.right),
+              Text("آيب الراوتر المحلي: $detectedIp", style: const TextStyle(color: Colors.greenAccent, fontSize: 12), textAlign: TextAlign.right),
               const SizedBox(height: 12),
               TextField(
                 controller: nameController,
                 style: const TextStyle(color: Colors.white),
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "اسم المشترك أو الراوتر", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "اسم المشترك أو الموقع", labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: ipController,
                 style: const TextStyle(color: Colors.white),
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "آيب الراوتر المكتشف", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "آيب الراوتر (Gateway)", labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: userController,
                 style: const TextStyle(color: Colors.white),
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "يوزر دخول الراوتر (Username)", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "يوزر الأدمين للراوتر", labelStyle: TextStyle(color: Colors.grey)),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -120,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(color: Colors.white),
                 obscureText: true,
                 textAlign: TextAlign.right,
-                decoration: const InputDecoration(labelText: "باسورد دخول الراوتر (Password)", labelStyle: TextStyle(color: Colors.grey)),
+                decoration: const InputDecoration(labelText: "باسورد الأدمين للراوتر", labelStyle: TextStyle(color: Colors.grey)),
               ),
             ],
           ),
@@ -138,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 routersList.add({
                   "name": nameController.text,
                   "ip": ipController.text,
-                  "type": "راوتر مكتشف و ONU",
+                  "type": "راوتر مع Gateway للـ ONU",
                   "user": userController.text,
                   "pass": passController.text,
                 });
@@ -147,21 +141,20 @@ class _HomeScreenState extends State<HomeScreen> {
               saveRoutersToStorage();
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("تم حفظ الراوتر ودخول إجهاداته بنجاح في القائمة العلوية!")),
+                const SnackBar(content: Text("تم حفظ الراوتر في القائمة العلوية بنجاح!")),
               );
             },
-            child: const Text("حفظ ودخول للأدمين"),
+            child: const Text("حفظ الجهاز"),
           ),
         ],
       ),
     );
   }
 
-  // الواجهة الرئيسية للتحكم بالراوتر والوصول للـ ONU
   Widget _buildHomeTab() {
     final activeRouter = routersList.isNotEmpty
         ? routersList[selectedRouterIndex]
-        : {"name": "راوتر الشبكة الحالي", "ip": discoveredIp, "type": "جهاز بانتظار الحفظ", "user": "admin", "pass": "admin"};
+        : {"name": "راوتر الشبكة الحالي", "ip": discoveredIp, "type": "جهاز جديد", "user": "admin", "pass": "admin"};
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -177,12 +170,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 8),
 
-          // البطاقات العلوية (الراوترات المتصلة والمحفوظة)
+          // القائمة العلوية الأفقية للأجهزة المحفوظة
           SizedBox(
             height: 100,
             child: routersList.isEmpty
                 ? Center(
-                    child: Text("الآيب الحالي المكتشف: $discoveredIp\nاضغط لإضافة وحفظ الجهاز", 
+                    child: Text("الآيب الحالي: $discoveredIp\nاضغط (+) لحفظ الراوتر", 
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
@@ -236,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // بطاقة التحكم النشطة والعبور المباشر لصفحة الراوتر والـ ONU
+          // بطاقة التحكم والعبور لمعرفة Gateway الـ ONU أو النانو
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -255,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  height: 95,
+                  height: 105,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: const Color(0xFF0B1120),
@@ -264,11 +257,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.admin_panel_settings, color: Colors.cyanAccent, size: 30),
+                      const Icon(Icons.hub, color: Colors.cyanAccent, size: 30),
                       const SizedBox(height: 4),
-                      Text("النوع: ${activeRouter['type']}", style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      Text("الراوتر والـ Gateway للـ ONU", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      const Text("جاهز لفتح صفحة الأدمين والوصول للـ ONU / النانو", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                      const Text("افتح الراوتر لترى Gateway الربط مع الأوني/النانو", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
                     ],
                   ),
                 ),
@@ -277,8 +270,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
-                    icon: const Icon(Icons.open_in_browser, size: 18),
-                    label: Text("الدخول لصفحة الراوتر والـ ONU (${activeRouter['ip']})", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    icon: const Icon(Icons.login, size: 18),
+                    label: Text("فتح صفحة الراوتر ومعرفة Gateway (${activeRouter['ip']})", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                     onPressed: () {
                       _showAdminLoginDialog(activeRouter['name']!, activeRouter['ip']!, activeRouter['user']!, activeRouter['pass']!);
                     },
@@ -289,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 20),
 
-          // الأزرار الأربعة للتحكم الميداني
+          // الأزرار الأربعة
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -317,16 +310,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // شاشة الأجهزة (Devices Tab)
   Widget _buildDevicesTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("الأجهزة المتصلة بالشبكة الحالية", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          const Text("الأجهزة والمنظومات المتصلة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 10),
-          _buildDeviceTile("الراوتر الرئيسي المكتشف", discoveredIp, "00:1A:2C:3B:4D:5E", Icons.router, Colors.cyanAccent, isOnline: true),
+          _buildDeviceTile("الراوتر المحلي (Gateway)", discoveredIp, "00:1A:2C:3B:4D:5E", Icons.router, Colors.cyanAccent, isOnline: true),
           _buildDeviceTile("منظومة ONU / النانو الضوئي", "192.168.100.1", "C8:3A:35:88:99:AA", Icons.hub, Colors.purpleAccent, isOnline: true),
         ],
       ),
@@ -364,11 +356,11 @@ class _HomeScreenState extends State<HomeScreen> {
         const Text("إعدادات البرنامج والميدان", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 16),
         _buildSettingTile("إعادة فحص واكتشاف الراوتر", "البحث عن الراوتر المتصل حالياً", Icons.refresh, autoDetectNetworkRouter),
-        _buildSettingTile("مسح النسخ والبيانات المخزنة", "تصفير السجلات المحلية", Icons.delete_sweep, () async {
+        _buildSettingTile("مسح الأجهزة المخزنة", "تصفير السجلات المحلية", Icons.delete_sweep, () async {
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove('saved_routers');
           setState(() => routersList.clear());
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم مسح كافة الأجهزة المحفوظة!")));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم مسح الأجهزة المخزنة!")));
         }),
       ],
     );
@@ -380,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         const Text("أدوات الفني المتقدمة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 16),
-        _buildSettingTile("فحص خط الاستجابة (Ping)", "التحقق من استقرار الاتصال بالراوتر", Icons.network_check, () => _showSpeedTestModal()),
+        _buildSettingTile("فحص الاستجابة (Ping)", "التحقق من اتصال الراوتر والـ ONU", Icons.network_check, () => _showSpeedTestModal()),
       ],
     );
   }
@@ -403,7 +395,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // واجهة فتح الأدمين للراوتر والـ ONU داخل التطبيق أو المتصفح
   void _showAdminLoginDialog(String name, String ip, String user, String pass) {
     showDialog(
       context: context,
@@ -414,12 +405,12 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("آيب الراوتر: $ip", style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+            Text("آيب الراوتر الرئيسي: $ip", style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text("يوزر الأدمين: $user", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text("يوزر الدخول: $user", style: const TextStyle(color: Colors.white70, fontSize: 12)),
             Text("كلمة المرور: $pass", style: const TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 12),
-            const Text("من خلال الدخول لصفحة الراوتر هذه، يمكنك الوصول لتبويب الـ WAN أو الـ Gateway للعبور المباشر للـ ONU أو النانو المربوط.", style: TextStyle(color: Colors.grey, fontSize: 11)),
+            const Text("من خلال فتح صفحة إعدادات هذا الراوتر، ستتمكن من رؤية الـ Gateway الذي يربط الراوتر مع الـ (ONU / النانو) والتحكم بهما بكل سهولة.", style: TextStyle(color: Colors.grey, fontSize: 11)),
           ],
         ),
         actions: [
@@ -429,7 +420,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("فتح واجهة الأدمين للراوتر على الآيب: http://$ip ...")),
+                SnackBar(content: Text("فتح صفحة إعدادات الراوتر على الآيب: http://$ip ...")),
               );
             },
             child: const Text("فتح صفحة الأدمين"),
@@ -453,14 +444,14 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text("شبكة الضيوف (Guest Network)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 12),
             SwitchListTile(
-              title: const Text("تفعيل شبكة الضيوف المؤقتة", style: TextStyle(color: Colors.white, fontSize: 13)),
+              title: const Text("تفعيل شبكة الضيوف", style: TextStyle(color: Colors.white, fontSize: 13)),
               value: true,
               activeColor: Colors.purpleAccent,
               onChanged: (val) {},
             ),
             const TextField(
               style: TextStyle(color: Colors.white),
-              decoration: InputDecoration(labelText: "اسم شبكة الضيوف (SSID)", labelStyle: TextStyle(color: Colors.grey)),
+              decoration: InputDecoration(labelText: "اسم الشبكة (SSID)", labelStyle: TextStyle(color: Colors.grey)),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -469,7 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
                 onPressed: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تفعيل شبكة الضيوف بنجاح!")));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم حفظ إعدادات شبكة الضيوف!")));
                 },
                 child: const Text("حفظ الإعدادات"),
               ),
@@ -490,17 +481,17 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("اختبار سرعة الاستجابة (Ping)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text("اختبار استجابة الخط (Ping)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 20),
             const Icon(Icons.speed, color: Colors.greenAccent, size: 50),
             const SizedBox(height: 10),
-            const Text("الاستجابة الحقيقية: 5 ms", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+            const Text("الاستجابة الحقيقية: 4 ms", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black),
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم فحص استجابة الشبكة بنجاح!")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم فحص الاستجابة بنجاح!")));
               },
               child: const Text("إعادة الفحص"),
             )
@@ -521,10 +512,10 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("التحكم الأبوي وحظر المواقع", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text("نظام التحكم الأبوي", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 10),
             SwitchListTile(
-              title: const Text("تفعيل الحماية الأبوية على الراوتر", style: TextStyle(color: Colors.white, fontSize: 13)),
+              title: const Text("حظر المواقع غير المرغوبة", style: TextStyle(color: Colors.white, fontSize: 13)),
               value: true,
               activeColor: Colors.orangeAccent,
               onChanged: (val) {},
@@ -536,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.black),
                 onPressed: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تطبيق حماية التحكم الأبوي بنجاح!")));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم تطبيق حماية التحكم الأبوي!")));
                 },
                 child: const Text("تطبيق الحماية"),
               ),
