@@ -12,7 +12,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool isScanning = false;
-  bool isCloudSynced = false;
   Map<String, dynamic>? detectedRouter;
   List<Map<String, String>> savedRouters = [];
 
@@ -20,74 +19,44 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadSavedRouters();
-    scanNetworkAndDetectDevice();
+    scanRealNetworkAndWifi(); // فحص حقيقي وتلقائي عند فتح التطبيق
   }
 
   Future<void> loadSavedRouters() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> saved = prefs.getStringList('router_hub_devices_cloud') ?? [];
+    List<String> saved = prefs.getStringList('router_hub_real_devices') ?? [];
     setState(() {
       savedRouters = saved.map((item) {
         final parts = item.split('|');
         return {
           "name": parts.isNotEmpty ? parts[0] : "راوتر",
-          "brand": parts.length > 1 ? parts[1] : "Cudy / TP-Link",
-          "ip": parts.length > 2 ? parts[2] : "192.168.1.1",
-          "status": parts.length > 3 ? parts[3] : "محلي وسحابي",
+          "ip": parts.length > 1 ? parts[1] : "192.168.1.1",
         };
       }).toList();
     });
   }
 
-  Future<void> syncRouterToCloud(String name, String brand, String ip) async {
-    setState(() => isCloudSynced = true);
-
-    bool success = await NetworkService.saveRouterToCloud({
-      "name": name,
-      "brand": brand,
-      "ip": ip,
-      "timestamp": DateTime.now().toString(),
-    });
-
-    setState(() {
-      if (!savedRouters.any((r) => r['ip'] == ip)) {
-        savedRouters.add({
-          "name": name,
-          "brand": brand,
-          "ip": ip,
-          "status": success ? "متزامن مع JSONBin ☁️" : "محلي فقط",
-        });
-      }
-      isCloudSynced = false;
-    });
-
-    final prefs = await SharedPreferences.getInstance();
-    List<String> formatted = savedRouters.map((r) => "${r['name']}|${r['brand']}|${r['ip']}|${r['status']}").toList();
-    await prefs.setStringList('router_hub_devices_cloud', formatted);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(success ? "تم حفظ البيانات على حسابك السحابي بنجاح! ☁️" : "تم الحفظ محلياً (تعذر الاتصال بالسيرفر)")),
-    );
-  }
-
-  Future<void> scanNetworkAndDetectDevice() async {
+  // فحص مباشر وتلقائي للشبكة وجلب اسم الواي فاي الحقيقي للموبايل
+  Future<void> scanRealNetworkAndWifi() async {
     setState(() => isScanning = true);
-    String routerIp = await NetworkService.getConnectedRouterIP();
-    String brandName = NetworkService.detectRouterBrand(routerIp);
 
-    await Future.delayed(const Duration(seconds: 1));
+    // سحب اسم الشبكة الحقيقي المتصل بها الموبايل حالياً
+    String realWifiName = await NetworkService.getConnectedWifiName();
+    String realIp = await NetworkService.getConnectedRouterIP();
+
+    await Future.delayed(const Duration(milliseconds: 600));
 
     setState(() {
       isScanning = false;
       detectedRouter = {
-        "name": "راوتر الشبكة الحالي",
-        "brand": brandName,
-        "ip": routerIp,
+        "name": realWifiName, // اسم شبكتك الحقيقي (مثل Zain-Fi2-BAA2)
+        "ip": realIp,
       };
     });
   }
 
-  void _showPasswordAndCloudSyncDialog(Map<String, dynamic> router) {
+  // نافذة طلب الباسورد للراوتر المكتشف تلقائياً
+  void _showPasswordPromptDialog(Map<String, dynamic> router) {
     final passwordController = TextEditingController();
 
     showDialog(
@@ -96,20 +65,16 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF131C31),
         title: Row(
           children: [
-            const Icon(Icons.cloud_sync, color: Colors.cyanAccent),
+            const Icon(Icons.lock_outline, color: Colors.cyanAccent),
             const SizedBox(width: 8),
-            Text("إدارة سحابية: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 13)),
+            Text("تسجيل دخول: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 13)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("النوع: ${router['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
-            const SizedBox(height: 4),
-            Text("الآيب: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
-            const SizedBox(height: 8),
-            const Text("حفظ البيانات يتيح لك التحكم بالجهاز عن بعد.", style: TextStyle(color: Colors.grey, fontSize: 10)),
+            Text("الآيب المكتشف: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
             const SizedBox(height: 12),
             TextField(
               controller: passwordController,
@@ -117,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.right,
               decoration: const InputDecoration(
-                labelText: "كلمة مرور الأدمين (Password)",
+                labelText: "أدخل كلمة مرور الأدمين (Password)",
                 labelStyle: TextStyle(color: Colors.grey),
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
               ),
@@ -131,12 +96,54 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
-            onPressed: () {
-              if (passwordController.text.isEmpty) return;
+            onPressed: () async {
+              String enteredPass = passwordController.text;
+              
+              // التحقق من صحة الباسورد
+              bool isCorrect = NetworkService.verifyAdminPassword(enteredPass);
+
+              if (!isCorrect) {
+                // إذا الباسورد خطأ يرفض ويظهر خطأ
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("❌ كلمة المرور غير صحيحة، يرجى المحاولة مجدداً!"),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+
+              // إذا الباسورد صح، يحفظ ويدخل لإدارة الراوتر
               Navigator.pop(context);
-              syncRouterToCloud(router['name'], router['brand'], router['ip']);
+
+              setState(() {
+                if (!savedRouters.any((r) => r['ip'] == router['ip'])) {
+                  savedRouters.add({
+                    "name": router['name'],
+                    "ip": router['ip'],
+                  });
+                }
+              });
+
+              final prefs = await SharedPreferences.getInstance();
+              List<String> formatted = savedRouters.map((r) => "${r['name']}|${r['ip']}").toList();
+              await prefs.setStringList('router_hub_real_devices', formatted);
+
+              // مزامنة مع سيرفر JSONBin الخاص بك
+              await NetworkService.saveRouterToCloud({
+                "wifi_name": router['name'],
+                "gateway_ip": router['ip'],
+                "status": "Verified & Connected",
+              });
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("✅ كلمة المرور صحيحة وتم الاتصال بنجاح!"),
+                  backgroundColor: Colors.green,
+                ),
+              );
             },
-            child: const Text("حفظ سحابياً ودخول"),
+            child: const Text("دخول للخصائص"),
           ),
         ],
       ),
@@ -161,64 +168,61 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("لوحة التحكم السحابية", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    Row(
-                      children: [
-                        const Icon(Icons.cloud_done, color: Colors.greenAccent, size: 16),
-                        const SizedBox(width: 4),
-                        const Text("JSONBin متصل", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
-                      ],
+                    const Text("لوحة القيادة الميدانية", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.cyanAccent, size: 20),
+                      onPressed: scanRealNetworkAndWifi,
+                      tooltip: "إعادة الفحص المباشر للشبكة",
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
-                isScanning || isCloudSynced
+                isScanning
                     ? Column(
                         children: const [
                           CircularProgressIndicator(color: Colors.cyanAccent),
                           SizedBox(height: 10),
-                          Text("جاري المزامنة مع حسابك...", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          Text("جاري فحص شبكة الواي فاي الحالية...", style: TextStyle(color: Colors.grey, fontSize: 11)),
                         ],
                       )
                     : detectedRouter != null
                         ? InkWell(
-                            onTap: () => _showPasswordAndCloudSyncDialog(detectedRouter!),
+                            onTap: () => _showPasswordPromptDialog(detectedRouter!),
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0B1120),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+                                border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.router, color: Colors.cyanAccent, size: 32),
+                                  const Icon(Icons.wifi, color: Colors.cyanAccent, size: 32),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(detectedRouter!['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                                        Text(detectedRouter!['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                                         const SizedBox(height: 2),
-                                        Text(detectedRouter!['brand'], style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                                        Text("الآيب: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                                        Text("IP: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.cloud_upload, color: Colors.cyanAccent, size: 20),
+                                  const Icon(Icons.arrow_forward_ios, color: Colors.cyanAccent, size: 16),
                                 ],
                               ),
                             ),
                           )
-                        : const Text("لا توجد أجهزة مكتشفة", style: TextStyle(color: Colors.grey)),
+                        : const Text("لم يتم العثور على شبكة متصلة", style: TextStyle(color: Colors.grey)),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          const Text("الراوترات المحفوظة سحابياً", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text("الراوترات المحفوظة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
           savedRouters.isEmpty
-              ? const Text("لا توجد أجهزة مسجلة", style: TextStyle(color: Colors.grey, fontSize: 12))
+              ? const Text("لا توجد أجهزة محفوظة بعد", style: TextStyle(color: Colors.grey, fontSize: 12))
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -233,16 +237,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: Border.all(color: Colors.white12),
                       ),
                       child: ListTile(
-                        leading: const Icon(Icons.cloud_queue, color: Colors.cyanAccent),
+                        leading: const Icon(Icons.router, color: Colors.cyanAccent),
                         title: Text(r['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        subtitle: Text("IP: ${r['ip']} | ${r['status']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                        subtitle: Text("IP: ${r['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                         trailing: IconButton(
-                          icon: const Icon(Icons.settings_remote, color: Colors.greenAccent),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("جاري الاتصال بحسابك للتحكم في ${r['name']}...")),
-                            );
-                          },
+                          icon: const Icon(Icons.login, color: Colors.greenAccent),
+                          onPressed: () => _showPasswordPromptDialog(r),
                         ),
                       ),
                     );
@@ -253,9 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDevicesTab() => const Center(child: Text("إدارة الأجهزة عن بعد", style: TextStyle(color: Colors.white)));
-  Widget _buildSettingsTab() => const Center(child: Text("إعدادات الحساب السحابي", style: TextStyle(color: Colors.white)));
-  Widget _buildMoreTab() => const Center(child: Text("أدوات الميدان", style: TextStyle(color: Colors.white)));
+  Widget _buildDevicesTab() => const Center(child: Text("الأجهزة", style: TextStyle(color: Colors.white)));
+  Widget _buildSettingsTab() => const Center(child: Text("الإعدادات", style: TextStyle(color: Colors.white)));
+  Widget _buildMoreTab() => const Center(child: Text("المزيد", style: TextStyle(color: Colors.white)));
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           children: const [
             Text("RouterHub Cloud", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("RU-Mange | JSONBin Connected", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+            Text("RU-Mange | Real WiFi Scan", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
           ],
         ),
         centerTitle: true,
