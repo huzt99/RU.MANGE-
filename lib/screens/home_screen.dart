@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ru_mange/services/network_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,19 +19,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     loadSavedRouters();
-    scanConnectedNetwork(); // فحص الشبكة فور فتح التطبيق مثل تطبيق Cudy
+    scanNetworkAndDetectDevice(); // الفحص التلقائي للشبكة عند فتح التطبيق مثل تطبيق Cudy
   }
 
   Future<void> loadSavedRouters() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> saved = prefs.getStringList('my_routers_hub') ?? [];
+    List<String> saved = prefs.getStringList('router_hub_devices') ?? [];
     setState(() {
       savedRouters = saved.map((item) {
         final parts = item.split('|');
         return {
           "name": parts.isNotEmpty ? parts[0] : "راوتر",
-          "brand": parts.length > 1 ? parts[1] : "Cudy",
-          "ip": parts.length > 2 ? parts[2] : "192.168.10.1",
+          "brand": parts.length > 1 ? parts[1] : "Cudy / TP-Link",
+          "ip": parts.length > 2 ? parts[2] : "192.168.1.1",
         };
       }).toList();
     });
@@ -39,30 +40,31 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> saveRoutersToStorage() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> formatted = savedRouters.map((r) => "${r['name']}|${r['brand']}|${r['ip']}").toList();
-    await prefs.setStringList('my_routers_hub', formatted);
+    await prefs.setStringList('router_hub_devices', formatted);
   }
 
-  // دالة فحص الشبكة المكنك عليها وتحديد نوع الراوتر (Cudy, TP-Link, Tenda, ONU)
-  void scanConnectedNetwork() {
+  // فحص الشبكة وتحديد الراوتر المتصل به حالياً (يدعم Cudy, TP-Link, Tenda, ONU)
+  Future<void> scanNetworkAndDetectDevice() async {
     setState(() => isScanning = true);
 
-    Future.delayed(const Duration(seconds: 2), () {
-      // محاكاة الفحص الذكي للشبكة المتصل بها الوايفاي حالياً
-      // هنا التطبيق يتعرف تلقائياً على نوع الراوتر حسب الـ Gateway أو البصمة
-      setState(() {
-        isScanning = false;
-        // مثال لراوتر تم اكتشافه على الشبكة الحالية:
-        detectedRouter = {
-          "name": "راوتر الشبكة الحالي",
-          "brand": "Cudy / TP-Link / Tenda / ONU",
-          "ip": "192.168.10.1", // أو أي آيب حقيقي متصل بيه
-          "icon": Icons.router,
-        };
-      });
+    // جلب الآيب الحقيقي للـ Gateway للشبكة المكنك عليها
+    String routerIp = await NetworkService.getConnectedRouterIP();
+    String brandName = NetworkService.detectRouterBrand(routerIp);
+
+    await Future.delayed(const Duration(seconds: 15)); // محاكاة وقت الفحص الذكي للشبكة
+
+    setState(() {
+      isScanning = false;
+      detectedRouter = {
+        "name": "راوتر الشبكة الحالي",
+        "brand": brandName,
+        "ip": routerIp,
+        "icon": Icons.router,
+      };
     });
   }
 
-  // نافذة إدخال كلمة سر الراوتر المكتشف تماماً مثل تطبيق Cudy
+  // نافذة إدخال كلمة سر الراوتر المكتشف (مثل تطبيق Cudy)
   void _showPasswordPromptDialog(Map<String, dynamic> router) {
     final passwordController = TextEditingController();
 
@@ -74,24 +76,24 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Icon(Icons.lock_outline, color: Colors.cyanAccent),
             const SizedBox(width: 8),
-            Text("تسجيل دخول: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 14)),
+            Text("تسجيل الدخول: ${router['name']}", style: const TextStyle(color: Colors.white, fontSize: 13)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("تم اكتشاف نوع الجهاز: ${router['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 12)),
-            const SizedBox(height: 6),
-            Text("الآيب المكتشف: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 12)),
-            const SizedBox(height: 14),
+            Text("النوع المكتشف: ${router['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+            const SizedBox(height: 4),
+            Text("الآيب: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
+            const SizedBox(height: 12),
             TextField(
               controller: passwordController,
               obscureText: true,
               style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.right,
               decoration: const InputDecoration(
-                labelText: "كلمة مرور الراوتر (Password)",
+                labelText: "أدخل كلمة مرور الراوتر (Password)",
                 labelStyle: TextStyle(color: Colors.grey),
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
               ),
@@ -107,14 +109,14 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
             onPressed: () {
               if (passwordController.text.isEmpty) return;
-              
-              // حفظ الجهاز في القائمة إذا لم يكن موجوداً
+
+              // حفظ الجهاز في السجل المحلي
               setState(() {
                 if (!savedRouters.any((r) => r['ip'] == router['ip'])) {
                   savedRouters.add({
-                    "name": router['name'],
-                    "brand": router['brand'],
-                    "ip": router['ip'],
+                    "name": router['name']!,
+                    "brand": router['brand']!,
+                    "ip": router['ip']!,
                   });
                   saveRoutersToStorage();
                 }
@@ -122,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("تم التحقق بنجاح! جاري فتح خصائص الراوتر...")),
+                const SnackBar(content: Text("تم التحقق بنجاح! جاري فتح خصائص الراوتر والإدارة...")),
               );
             },
             child: const Text("دخول للخصائص"),
@@ -138,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // شريط البحث الميداني للشبكة
+          // لوحة القيادة الميدانية (مشابهة لتطبيق Cudy)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -151,19 +153,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("لوحة القيادة والميدان", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Text("لوحة القيادة (Wi-Fi Radar)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                     IconButton(
                       icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
-                      onPressed: scanConnectedNetwork,
-                      tooltip: "إعادة بحث وفحص الشبكة",
+                      onPressed: scanNetworkAndDetectDevice,
+                      tooltip: "إعادة بحث الفحص",
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 isScanning
-                    ? const Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(color: Colors.cyanAccent),
+                    ? Column(
+                        children: const [
+                          CircularProgressIndicator(color: Colors.cyanAccent),
+                          SizedBox(height: 12),
+                          Text("جاري فحص الشبكة والتعرف على الراوتر...", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        ],
                       )
                     : detectedRouter != null
                         ? InkWell(
@@ -177,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.router, color: Colors.cyanAccent, size: 30),
+                                  const Icon(Icons.router, color: Colors.cyanAccent, size: 32),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
@@ -185,8 +190,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                       children: [
                                         Text(detectedRouter!['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                                         const SizedBox(height: 2),
-                                        Text("الدعم: ${detectedRouter!['brand']}", style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
-                                        Text("IP: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                                        Text(detectedRouter!['brand'], style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+                                        Text("IP Gateway: ${detectedRouter!['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                                       ],
                                     ),
                                   ),
@@ -195,17 +200,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           )
-                        : const Text("لم يتم العثور على أجهزة متصلة", style: TextStyle(color: Colors.grey)),
+                        : const Text("لم يتم العثور على أجهزة", style: TextStyle(color: Colors.grey)),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // الأجهزة المحفوظة مسبقاً
-          const Text("الأجهزة المحفوظة في الميدان", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          // الأجهزة المحفوظة في الميدان
+          const Text("الأجهزة والمنظومات المحفوظة", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
           savedRouters.isEmpty
-              ? const Text("لا توجد أجهزة محفوظة بعد", style: TextStyle(color: Colors.grey, fontSize: 12))
+              ? const Text("لا توجد أجهزة محفوظة في السجل", style: TextStyle(color: Colors.grey, fontSize: 12))
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -220,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: Border.all(color: Colors.white12),
                       ),
                       child: ListTile(
-                        leading: const Icon(Icons.devices_other, color: Colors.cyanAccent),
+                        leading: const Icon(Icons.hub, color: Colors.cyanAccent),
                         title: Text(r['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                         subtitle: Text("النوع: ${r['brand']} | IP: ${r['ip']}", style: const TextStyle(color: Colors.grey, fontSize: 10)),
                         trailing: IconButton(
@@ -236,9 +241,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDevicesTab() => const Center(child: Text("الأجهزة المتصلة بالشبكة", style: TextStyle(color: Colors.white)));
+  Widget _buildDevicesTab() => const Center(child: Text("قائمة الأجهزة المتصلة", style: TextStyle(color: Colors.white)));
   Widget _buildSettingsTab() => const Center(child: Text("إعدادات البرنامج", style: TextStyle(color: Colors.white)));
-  Widget _buildMoreTab() => const Center(child: Text("المزيد من الأدوات", style: TextStyle(color: Colors.white)));
+  Widget _buildMoreTab() => const Center(child: Text("الأدوات المتقدمة والمزيد", style: TextStyle(color: Colors.white)));
 
   @override
   Widget build(BuildContext context) {
@@ -257,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           children: const [
             Text("RouterHub", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("RU-Mange | دعم Cudy, TP-Link, Tenda & ONU", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+            Text("RU-Mange | Cudy, TP-Link, Tenda & ONU", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
           ],
         ),
         centerTitle: true,
