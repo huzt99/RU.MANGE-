@@ -1,71 +1,30 @@
-import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:network_info_plus/network_info_plus.dart';
 
 class NetworkService {
-  // دالة فحص اتصال حقيقي للآيب
-  static Future<Map<String, dynamic>> realPing(String ipAddress) async {
+  // دالة لجلب الآيب الحقيقي للـ Gateway للشبكة المتصل بها الهاتف حالياً
+  static Future<String> getConnectedRouterIP() async {
     try {
-      final stopwatch = Stopwatch()..start();
-      final response = await http.get(
-        Uri.parse('http://$ipAddress'),
-      ).timeout(const Duration(seconds: 1));
-      
-      stopwatch.stop();
-      
-      if (response.statusCode < 500) {
-        return {
-          "status": true,
-          "latency": "${stopwatch.elapsedMilliseconds} ms",
-          "message": "متصل - استجابة حقيقية من الراوتر"
-        };
+      final info = NetworkInfo();
+      String? gateway = await info.getWifiGatewayIP();
+      if (gateway != null && gateway.isNotEmpty && gateway != "0.0.0.0") {
+        return gateway;
       }
     } catch (e) {
-      return {
-        "status": true,
-        "latency": "أقل من 5 ms",
-        "message": "تم رصد الجهاز على الشبكة المحلية"
-      };
+      // في حال عدم توفر القراءة المباشرة
     }
-    
-    return {
-      "status": false,
-      "latency": "---",
-      "message": "لا يوجد استجابة"
-    };
+    return "192.168.1.1"; // القيمة الافتراضية للتجربة الميدانية
   }
 
-  // دالة مسح نطاق الشبكة المحلي لاكتشاف آيب الراوتر المربوط حالياً
-  static Future<String> discoverRouterIP() async {
-    // قائمة النطاقات الأكثر استخداماً في شبكاتنا والميدان العراقي
-    List<String> commonSubnets = [
-      "192.168.1",
-      "192.168.0",
-      "192.168.8",
-      "192.168.100",
-      "192.168.101",
-      "10.0.0",
-    ];
-
-    for (String subnet in commonSubnets) {
-      // نفحص أهم الآيبات في كل شبكة (مثل .1 و .254 و .2)
-      List<String> prioritySuffixes = ["1", "254", "2", "253"];
-      for (String suffix in prioritySuffixes) {
-        String testIp = "$subnet.$suffix";
-        try {
-          final res = await http.get(
-            Uri.parse('http://$testIp'),
-          ).timeout(const Duration(milliseconds: 600));
-          
-          if (res.statusCode < 500) {
-            return testIp; // وجدنا آيب الراوتر النشط الحقيقي!
-          }
-        } catch (e) {
-          // حتى لو صار استثناء، نعتبر الـ .1 افتراضياً إذا حدث اتصال
-          if (suffix == "1") {
-            return testIp;
-          }
-        }
-      }
+  // فحص نوع الراوتر بناءً على الاستجابة أو النطاق
+  static String detectRouterBrand(String ip) {
+    if (ip.contains("100.1") || ip.contains("100.2")) {
+      return "منظومة ضوئية (ONU / ONT)";
+    } else if (ip.startsWith("192.168.0") || ip.startsWith("192.168.1")) {
+      return "TP-Link / Cudy / Tenda";
+    } else if (ip.startsWith("192.168.8")) {
+      return "راوتر محمول / 4G";
     }
-    return "192.168.1.1"; // الافتراضي العام
+    return "راوتر ميداني عام (Cudy / Tenda / TP-Link)";
   }
 }
