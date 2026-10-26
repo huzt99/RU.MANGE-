@@ -12,7 +12,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool isScanning = false;
-  bool isCloudSynced = false; // مؤشر الاتصال بالسحابة
+  bool isCloudSynced = false;
   Map<String, dynamic>? detectedRouter;
   List<Map<String, String>> savedRouters = [];
 
@@ -33,18 +33,21 @@ class _HomeScreenState extends State<HomeScreen> {
           "name": parts.isNotEmpty ? parts[0] : "راوتر",
           "brand": parts.length > 1 ? parts[1] : "Cudy / TP-Link",
           "ip": parts.length > 2 ? parts[2] : "192.168.1.1",
-          "status": parts.length > 3 ? parts[3] : "محلي ومحابي (Cloud)",
+          "status": parts.length > 3 ? parts[3] : "محلي وسحابي",
         };
       }).toList();
     });
   }
 
-  // حفظ محلي + مزامنة سحابية عبر الإنترنت (Cloud Backup)
   Future<void> syncRouterToCloud(String name, String brand, String ip) async {
     setState(() => isCloudSynced = true);
 
-    // محاكاة الاتصال بسيرفر السحابة لرفع وحفظ البيانات عبر الإنترنت
-    await Future.delayed(const Duration(seconds: 2));
+    bool success = await NetworkService.saveRouterToCloud({
+      "name": name,
+      "brand": brand,
+      "ip": ip,
+      "timestamp": DateTime.now().toString(),
+    });
 
     setState(() {
       if (!savedRouters.any((r) => r['ip'] == ip)) {
@@ -52,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
           "name": name,
           "brand": brand,
           "ip": ip,
-          "status": "متزامن مع السحابة ☁️",
+          "status": success ? "متزامن مع JSONBin ☁️" : "محلي فقط",
         });
       }
       isCloudSynced = false;
@@ -63,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList('router_hub_devices_cloud', formatted);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("تم حفظ الراوتر في ذاكرة الجهاز وسيرفرات السحابة بنجاح! ☁️")),
+      SnackBar(content: Text(success ? "تم حفظ البيانات على حسابك السحابي بنجاح! ☁️" : "تم الحفظ محلياً (تعذر الاتصال بالسيرفر)")),
     );
   }
 
@@ -84,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // نافذة طلب الباسورد والمزامنة السحابية للتحكم عن بعد
   void _showPasswordAndCloudSyncDialog(Map<String, dynamic> router) {
     final passwordController = TextEditingController();
 
@@ -107,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 4),
             Text("الآيب: ${router['ip']}", style: const TextStyle(color: Colors.cyanAccent, fontSize: 11)),
             const SizedBox(height: 8),
-            const Text("حفظ البيانات يتيح لك التحكم بالراوتر حتى من خارج الموقع عبر السحابة.", style: TextStyle(color: Colors.grey, fontSize: 10)),
+            const Text("حفظ البيانات يتيح لك التحكم بالجهاز عن بعد.", style: TextStyle(color: Colors.grey, fontSize: 10)),
             const SizedBox(height: 12),
             TextField(
               controller: passwordController,
@@ -147,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // لوحة القيادة السحابية ومؤشر الاتصال
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -160,12 +161,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("لوحة التحكم السحابية (Cloud Hub)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text("لوحة التحكم السحابية", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                     Row(
                       children: [
                         const Icon(Icons.cloud_done, color: Colors.greenAccent, size: 16),
                         const SizedBox(width: 4),
-                        const Text("متصل بالسحابة", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
+                        const Text("JSONBin متصل", style: TextStyle(color: Colors.greenAccent, fontSize: 10)),
                       ],
                     ),
                   ],
@@ -176,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: const [
                           CircularProgressIndicator(color: Colors.cyanAccent),
                           SizedBox(height: 10),
-                          Text("جاري المزامنة مع سيرفرات السحابة...", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          Text("جاري المزامنة مع حسابك...", style: TextStyle(color: Colors.grey, fontSize: 11)),
                         ],
                       )
                     : detectedRouter != null
@@ -214,12 +215,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // الأجهزة المحفوظة سحابياً ومحلياً للتحكم عن بعد
-          const Text("الراوترات المحفوظة (سحابياً ومحلياً)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text("الراوترات المحفوظة سحابياً", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 10),
           savedRouters.isEmpty
-              ? const Text("لا توجد أجهزة مسجلة في السجل السحابي", style: TextStyle(color: Colors.grey, fontSize: 12))
+              ? const Text("لا توجد أجهزة مسجلة", style: TextStyle(color: Colors.grey, fontSize: 12))
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -241,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: const Icon(Icons.settings_remote, color: Colors.greenAccent),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("جاري الاتصال بالسيرفر السحابي للتحكم بجهاز ${r['name']} عن بعد...")),
+                              SnackBar(content: Text("جاري الاتصال بحسابك للتحكم في ${r['name']}...")),
                             );
                           },
                         ),
@@ -254,9 +253,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDevicesTab() => const Center(child: Text("إدارة أجهزة السحابة عن بعد", style: TextStyle(color: Colors.white)));
+  Widget _buildDevicesTab() => const Center(child: Text("إدارة الأجهزة عن بعد", style: TextStyle(color: Colors.white)));
   Widget _buildSettingsTab() => const Center(child: Text("إعدادات الحساب السحابي", style: TextStyle(color: Colors.white)));
-  Widget _buildMoreTab() => const Center(child: Text("أدوات الميدان المتقدمة", style: TextStyle(color: Colors.white)));
+  Widget _buildMoreTab() => const Center(child: Text("أدوات الميدان", style: TextStyle(color: Colors.white)));
 
   @override
   Widget build(BuildContext context) {
@@ -275,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Column(
           children: const [
             Text("RouterHub Cloud", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("RU-Mange | إدارة سحابية متقدمة", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
+            Text("RU-Mange | JSONBin Connected", style: TextStyle(color: Colors.cyanAccent, fontSize: 10)),
           ],
         ),
         centerTitle: true,
