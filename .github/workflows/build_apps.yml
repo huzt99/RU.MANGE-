@@ -1,203 +1,39 @@
-name: Build All Apps (APK, EXE, iOS IPA)
+name: Build Android APK
 
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch:
 
 jobs:
-  # 1. بناء تطبيق الأندرويد (APK)
-  build-apk:
-    name: Build Android APK
+  build:
+  
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.x'
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.x'
+        channel: 'stable'
+        cache: true
 
-      - name: Create Flutter Project & Build APK
-        run: |
-          flutter create web_app --org com.qaimqamiya.app
-          cd web_app
-          
-          cat << 'EOF' > pubspec.yaml
-          name: web_app
-          description: Web App Wrapper
-          publish_to: 'none'
-          version: 1.0.0+1
+    - name: Install Dependencies
+      run: flutter pub get
 
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
+    - name: Build APK
+      run: flutter build apk --release
 
-          dependencies:
-            flutter:
-              sdk: flutter
-            webview_flutter: ^4.7.0
-          EOF
-
-          cat << 'EOF' > lib/main.dart
-          import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
-
-          void main() {
-            WidgetsFlutterBinding.ensureInitialized();
-            runApp(const MaterialApp(
-              debugShowCheckedModeBanner: false,
-              home: AppView(),
-            ));
-          }
-
-          class AppView extends StatefulWidget {
-            const AppView({super.key});
-            @override
-            State<AppView> createState() => _AppViewState();
-          }
-
-          class _AppViewState extends State<AppView> {
-            late final WebViewController controller;
-            @override
-            void initState() {
-              super.initState();
-              controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..loadRequest(Uri.parse('https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/'));
-            }
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(
-                body: SafeArea(
-                  child: WebViewWidget(controller: controller),
-                ),
-              );
-            }
-          }
-          EOF
-
-          flutter pub get
-          flutter build apk --release
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Qaimqamiya-Android-APK
-          path: web_app/build/app/outputs/flutter-apk/app-release.apk
-
-  # 2. بناء برنامج الويندوز (EXE)
-  build-exe:
-    name: Build Windows EXE
-    runs-on: windows-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install Nativefier and Build EXE
-        shell: cmd
-        run: |
-          npm install -g nativefier
-          nativefier --name "Qaimqamiya-HR" "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" --out final_exe
-
-      - name: Upload Windows EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: Qaimqamiya-Windows-EXE
-          path: final_exe/**/*
-
-  # 3. بناء تطبيق الآيفون (iOS IPA)
-  build-ios:
-    name: Build iOS IPA
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.x'
-
-      - name: Create Flutter Project & Build IPA
-        run: |
-          flutter create ios_app --org com.qaimqamiya.app
-          cd ios_app
-          
-          cat << 'EOF' > pubspec.yaml
-          name: ios_app
-          description: Web App Wrapper for iOS
-          publish_to: 'none'
-          version: 1.0.0+1
-
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-
-          dependencies:
-            flutter:
-              sdk: flutter
-            webview_flutter: ^4.7.0
-          EOF
-
-          cat << 'EOF' > lib/main.dart
-          import 'package0:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
-
-          void main() {
-            WidgetsFlutterBinding.ensureInitialized();
-            runApp(const MaterialApp(
-              debugShowCheckedModeBanner: false,
-              home: AppView(),
-            ));
-          }
-
-          class AppView extends StatefulWidget {
-            const AppView({super.key});
-            @override
-            State<AppView> createState() => _AppViewState();
-          }
-
-          class _AppViewState extends State<AppView> {
-            late final WebViewController controller;
-            @override
-            void initState() {
-              super.initState();
-              controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..loadRequest(Uri.parse('https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/'));
-            }
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(
-                body: SafeArea(
-                  child: WebViewWidget(controller: controller),
-                ),
-              );
-            }
-          }
-          EOF
-
-          flutter pub get
-          flutter build ios --release --no-codesign
-          
-          # تحويل مجلد الـ Runner.app لملف IPA جاهز للتوقيع والتثبيت الخارجي
-          mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
-          zip -r Qaimqamiya_iOS.ipa Payload
-
-      - name: Upload iOS IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Qaimqamiya-iOS-IPA
-          path: ios_app/Qaimqamiya_iOS.ipa
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: build/app/outputs/flutter-apk/app-release.apk
