@@ -107,10 +107,10 @@ jobs:
         shell: cmd
         run: |
           npm install -g nativefier
-          nativefier --name "Qaimqamiya-HR" "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" release_exe
+          nativefier --name "Qaimqamiya-HR" "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" --out final_exe
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: Qaimqamiya-Windows-EXE
-          path: release_exe/**/*
+          path: final_exe/**/*
