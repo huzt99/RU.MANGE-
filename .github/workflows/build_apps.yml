@@ -1,0 +1,65 @@
+name: Build Apps (APK & EXE)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x'
+
+      - name: Create Flutter WebWrapper Project
+        run: |
+          cd ..
+          flutter create web_app
+          cd web_app
+          pub_content="name: web_app\ndescription: Web App Wrapper\npublish_to: 'none'\nversion: 1.0.0+1\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\ndependencies:\n  flutter:\n    sdk: flutter\n  webview_flutter: ^4.7.0\n"
+          echo "$pub_content" > pubspec.yaml
+          
+          main_content="import 'package:flutter/material.dart';\nimport 'package:webview_flutter/webview_flutter.dart';\n\nvoid main() {\n  WidgetsFlutterBinding.ensureInitialized();\n  runApp(const MaterialApp(\n    debugShowCheckedModeBanner: false,\n    home: AppView(),\n  ));\n}\n\nclass AppView extends StatefulWidget {\n  const AppView({super.key});\n  @override\n  State<AppView> createState() => _AppViewState();\n}\n\nclass _AppViewState extends State<AppView> {\n  late final WebViewController controller;\n  @override\n  void initState() {\n    super.initState();\n    controller = WebViewController()\n      ..setJavaScriptMode(JavaScriptMode.unrestricted)\n      ..loadRequest(Uri.parse('https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/'));\n  }\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n      body: SafeArea(\n        child: WebViewWidget(controller: controller),\n      ),\n    );\n  }\n}"
+          echo -e "$main_content" > lib/main.dart
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Qaimqamiya-Android-APK
+          path: ../web_app/build/app/outputs/flutter-apk/app-release.apk
+
+  build-exe:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Nativefier and Build EXE
+        shell: cmd
+        run: |
+          npm install -g nativefier
+          nativefier --name "Qaimqamiya-HR" "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" build_exe
+          
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Qaimqamiya-Windows-EXE
+          path: build_exe/
