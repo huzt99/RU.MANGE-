@@ -11,10 +11,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'قائمقامية قضاء السماوة',
-      home: const HomeScreen(),
+      home: HomeScreen(),
     );
   }
 }
@@ -27,16 +27,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final WebViewController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..loadRequest(Uri.parse('https://huzt99.github.io/RU.MANGE-/'));
-  }
+  // ربط التطبيق بالرابط الجديد المباشر
+  late final WebViewController _controller = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..setBackgroundColor(const Color(0x00000000))
+    ..loadRequest(Uri.parse('https://huzt99.github.io/outandin/'));
 
   @override
   Widget build(BuildContext context) {
