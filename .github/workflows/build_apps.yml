@@ -6,7 +6,6 @@ on:
 
 jobs:
   build:
-  
     runs-on: ubuntu-latest
 
     steps:
@@ -19,7 +18,7 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Set up Flutter
+On-name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.19.x'
@@ -28,6 +27,10 @@ jobs:
 
     - name: Install Dependencies
       run: flutter pub get
+
+    - name: Fix Android Gradle Structure
+      run: |
+        flutter create . --platforms=android --org com.huzt99.mange
 
     - name: Build APK
       run: flutter build apk --release
