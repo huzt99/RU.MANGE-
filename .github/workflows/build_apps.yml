@@ -28,10 +28,9 @@ jobs:
     - name: Install Dependencies
       run: flutter pub get
 
-    - name: Prepare Android Environment
+    - name: Generate Android Scaffold
       run: |
-        flutter config --enable-android
-        flutter pub upgrade
+        flutter create . --platforms=android --project-name=outandin --org com.huzt99
 
     - name: Build APK
       run: flutter build apk --release
