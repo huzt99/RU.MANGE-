@@ -26,11 +26,9 @@ jobs:
 
       - name: Create Flutter WebWrapper Project
         run: |
-          cd ..
-          flutter create web_app
+          flutter create web_app --org com.qaimqamiya.app
           cd web_app
           
-          # إنشاء ملف pubspec.yaml بشكل صحيح وبسطور متفرقة
           cat << 'EOF' > pubspec.yaml
           name: web_app
           description: Web App Wrapper
@@ -46,7 +44,6 @@ jobs:
             webview_flutter: ^4.7.0
           EOF
 
-          # إنشاء ملف main.dart بشكل صحيح
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
@@ -92,7 +89,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Qaimqamiya-Android-APK
-          path: ../web_app/build/app/outputs/flutter-apk/app-release.apk
+          path: web_app/build/app/outputs/flutter-apk/app-release.apk
 
   build-exe:
     name: Build Windows EXE
