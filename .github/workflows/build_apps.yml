@@ -28,9 +28,10 @@ jobs:
     - name: Install Dependencies
       run: flutter pub get
 
-    - name: Fix Android Gradle Structure
+    - name: Prepare Android Environment
       run: |
-        flutter create . --platforms=android --org com.huzt99.mange
+        flutter config --enable-android
+        flutter pub upgrade
 
     - name: Build APK
       run: flutter build apk --release
