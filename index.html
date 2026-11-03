@@ -78,6 +78,10 @@ table.lt th{background:#ede9fe;color:#3b0764}table.lt td{border-color:#ddd6fe;co
 .tp{display:flex;gap:4px;align-items:center}.tp select{flex:1;min-width:0;width:100%;padding:8px 2px;font-size:15px;font-weight:700;text-align:center;text-align-last:center;-webkit-appearance:none;appearance:none;background:#fff;color:#1e1b4b;border:2px solid #7c3aed;border-radius:8px}.tp select:first-child{flex:1.5}.tp b{font-size:18px;color:#4c1d95}
 .ts{background:#ede9fe;color:#3b0764;border-radius:8px;padding:4px;margin:6px 0;font-weight:700;font-size:13px}
 .fvb{display:block;color:#047857;font-weight:700;font-size:12px;margin-top:3px}
+#sheet.open{display:block;position:fixed;inset:0;overflow:auto;background:#475569;z-index:300;padding:0 0 30px}
+.pbar{position:sticky;top:0;left:0;z-index:2;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:10px;background:#1e1b4b}
+#sheet.open .paper{width:794px;min-width:794px;max-width:none;margin:14px auto}#sheet.land.open .paper{width:1123px;min-width:1123px}
+@media print{.pbar{display:none!important}#sheet.open{position:static;overflow:visible;background:#fff;padding:0}#sheet.open .paper{width:auto;min-width:0;margin:0}}
 </style></head><body>
 <div id="lock"><div class="card"><div style="font-size:44px">🏛️</div><h1>قائمقامية قضاء السماوة</h1><p class="mu">نظام الحضور والإجازات — أدخل الرمز للدخول</p>
 <input id="pin" type="password" inputmode="numeric" placeholder="الرمز" style="text-align:center">
@@ -92,7 +96,9 @@ table.lt th{background:#ede9fe;color:#3b0764}table.lt td{border-color:#ddd6fe;co
 <main id="v"></main></div></div>
 <div id="np" hidden><div class="npc"><div class="ch"><h2>🔔 الإشعارات</h2><button class="bt s" onclick="$('np').hidden=true">✖ إغلاق</button></div><button class="bt b" onclick="askNotif()" style="margin-bottom:10px">📲 تفعيل إشعارات الجهاز</button><div id="nl"></div></div></div>
 <div id="sheet"></div><div id="toast" hidden></div>
-<script src="/qaimqamiya-hr-system/face-api.min.js"></script>
+<script src="https://huzt99.github.io/outandin/face-api.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -101,7 +107,7 @@ table.lt th{background:#ede9fe;color:#3b0764}table.lt td{border-color:#ddd6fe;co
 const FIREBASE_CONFIG={apiKey:"AIzaSyCuiPTtkgotBp90q_AEklmjvf8zXk5rSLk",authDomain:"inadnout-f3368.firebaseapp.com",projectId:"inadnout-f3368",storageBucket:"inadnout-f3368.firebasestorage.app",messagingSenderId:"221743078655",appId:"1:221743078655:web:1467b95d3dbe4f2db700ca"};
 firebase.initializeApp(FIREBASE_CONFIG);
 const KEYS=["director","manager","accounting","hr"],ROLES=["مدير الدائرة","مدير الإدارة","مسؤول الحاسبة","مسؤول الموظفين"];
-const INFO=[{t:"مدير الدائرة",n:["الحقوقي عدي قاسم محمد الاعرجي"]},{t:"مدير الإدارة",n:["سماهر عبد الكاظم","محمد عفات","باسم رزاق"]},{t:"مسؤول الحاسبة",n:["حسين عبد المجيد"]},{t:"مسؤول الموظفين",n:["ياسر عامر برغش"]}];let ri=0;
+const INFO=[{t:"مدير الدائرة",n:["الحقوقي عدي قاسم محمد الاعرجي"]},{t:"مدير الإدارة",n:["سماهر عبد الحميد","محمد عفات","باسم رزاق"]},{t:"مسؤول الحاسبة",n:["حسين عبد المجيد"]},{t:"مسؤول الموظفين",n:["ياسر عامر برغش"]}];let ri=0;
 const TABS=[["att","1. الحضور والانصراف"],["lv","2. سجل الإجازات المطور"],["emp","3. العناوين الوظيفية"],["grd","4. حضور الحراس"],["mov","5. سجل الحركات"],["nt","6. الملاحظات"],["face","7. بصمة الوجه"]];
 const COLS=["emps","att2","lv","notes","mov","hol","meta"];
 let S={},role=ROLES[0],tab="att",DB=null,seeded={},dirty=false,stream,IMG=null;
@@ -148,10 +154,24 @@ else if(t=="mov"){title="سجل حركات اللجان خارج الدائرة"
 else{title="الملاحظات والمطالعات";heads=["التاريخ","الخاص بـ","الملاحظة","بواسطة"];recs=S.notes.filter(n=>inR(n.date,p)).sort((a,b)=>a.date.localeCompare(b.date));rows=recs.map(n=>[n.date,n.eid?ename(n.eid):"عامة",n.text,n.by||""])}
 return{title,heads,rows,recs}}
 function paperHTML(t,edit){const d=repData(t);return `<div class="paper"><div class="pk">🏛️ قائمقامية قضاء السماوة</div><h2>${d.title}</h2><div class="sub">الفترة: ${PL[PER[t]]} · تاريخ الطباعة: ${today()} ${nowT()} · أعدّه: ${esc(role)}</div><table><tr><th>#</th>${d.heads.map(h=>`<th>${h}</th>`).join("")}${edit?"<th></th>":""}</tr>${d.rows.map((r,i)=>`<tr><td>${i+1}</td>${r.map(c=>`<td>${esc(c)}</td>`).join("")}${edit?`<td><button class="bt d" onclick="del('notes','${d.recs[i].id}');go('nt')">حذف</button></td>`:""}</tr>`).join("")||`<tr><td colspan="9">لا توجد سجلات</td></tr>`}</table>${sigs()}</div>`}
-function printRep(t){$("sheet").innerHTML=paperHTML(t);setTimeout(()=>window.print(),150)}
+let SH_LAND=false,SH_NAME="report";
+function openSheet(h,land,name){SH_LAND=!!land;SH_NAME=name;const e=$("sheet");e.innerHTML=`<div class="pbar"><button class="bt b" onclick="window.print()">🖨️ طباعة</button><button class="bt gr" onclick="savePDF()">📄 حفظ PDF / مشاركة</button><button class="bt rd" onclick="closeSheet()">✖ إغلاق</button></div>`+h;e.classList.toggle("land",!!land);e.classList.add("open");e.scrollTop=0}
+function closeSheet(){const e=$("sheet");e.classList.remove("open");e.innerHTML=""}
+async function savePDF(){const el=document.querySelector("#sheet .paper");if(!el)return;toast("جارٍ إنشاء PDF...",8000);
+try{const W0=SH_LAND?1123:794,w=document.createElement("div");w.style.cssText="position:absolute;left:-10000px;top:0;width:"+W0+"px;background:#fff";const cl=el.cloneNode(true);cl.style.cssText="width:100%;min-width:0;max-width:none;margin:0;box-shadow:none;border-radius:0";w.appendChild(cl);document.body.appendChild(w);
+const c=await html2canvas(cl,{scale:2,backgroundColor:"#fff"});w.remove();
+const pdf=new window.jspdf.jsPDF({orientation:SH_LAND?"l":"p",unit:"mm",format:"a4"}),W=pdf.internal.pageSize.getWidth(),H=pdf.internal.pageSize.getHeight(),m=8,iw=W-2*m,ih=c.height*iw/c.width,ph=H-2*m;let y=0,first=true;
+while(y<ih-0.5){const sh=Math.min(ph,ih-y),sc=document.createElement("canvas");sc.width=c.width;sc.height=Math.max(1,Math.round(sh*c.width/iw));sc.getContext("2d").drawImage(c,0,Math.round(y*c.width/iw),c.width,sc.height,0,0,c.width,sc.height);if(!first)pdf.addPage();pdf.addImage(sc.toDataURL("image/jpeg",.92),"JPEG",m,m,iw,sh);first=false;y+=ph}
+const name=SH_NAME+"-"+today()+".pdf",P=window.Capacitor&&window.Capacitor.Plugins;
+if(P&&P.Filesystem&&P.Share){const b64=pdf.output("datauristring").split(",")[1],r=await P.Filesystem.writeFile({path:name,data:b64,directory:"CACHE"});await P.Share.share({title:name,url:r.uri,dialogTitle:"حفظ / مشاركة PDF"});toast("تم إنشاء الملف ✔");return}
+const blob=pdf.output("blob"),file=new File([blob],name,{type:"application/pdf"});
+if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:name});toast("تم ✔");return}catch(e){if(e&&e.name=="AbortError")return}}
+const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),15000);toast("تم تنزيل الملف ✔")}
+catch(e){toast("تعذر إنشاء PDF: "+(e&&e.message||e),5000)}}
+function printRep(t){openSheet(paperHTML(t),false,"report-"+t)}
 function printWeek(t){saveWeek(1);const g=t=="grd",ds=weekDays(V.y,V.m,V.w),L=S.emps.filter(e=>!!e.guard==g);
 const c=(e,d)=>{const r=S.att2.find(x=>x.id==e.id+"_"+d)||{},lv=lvOn(e.id,d),st=isHol(d)?"عطلة رسمية":(r.st||(lv?"إجازة":"حاضر"));return esc(st)+(r.in||r.out?`<br>${r.in||""} – ${r.out||""}`:"")+(r.note?`<br><small>${esc(r.note)}</small>`:"")+(lv&&lv.sub&&st=="إجازة"?`<br><small>البديل: ${esc(ename(lv.sub))}</small>`:"")};
-$("sheet").innerHTML=`<style>@media print{@page{size:A4 landscape;margin:10mm}}</style><div class="paper"><div class="pk">🏛️ قائمقامية قضاء السماوة</div><h2>${g?"سجل حضور وغياب الحراس":"سجل الحضور والغياب"} — الأسبوع ${V.w} / شهر ${V.m+1} / ${V.y}</h2><div class="sub">من ${ds[0]} إلى ${ds[4]} · تاريخ الطباعة: ${today()} ${nowT()} · أعدّه: ${esc(role)}</div><table><tr><th>#</th><th>الاسم</th>${ds.map((d,i)=>`<th>${DN[i]}<br>${d}</th>`).join("")}</tr>${L.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}</td>${ds.map(d=>`<td style="text-align:center">${c(e,d)}</td>`).join("")}</tr>`).join("")}</table>${sigs()}</div>`;setTimeout(()=>window.print(),150)}
+openSheet(`<style>@media print{@page{size:A4 landscape;margin:10mm}}</style><div class="paper"><div class="pk">🏛️ قائمقامية قضاء السماوة</div><h2>${g?"سجل حضور وغياب الحراس":"سجل الحضور والغياب"} — الأسبوع ${V.w} / شهر ${V.m+1} / ${V.y}</h2><div class="sub">من ${ds[0]} إلى ${ds[4]} · تاريخ الطباعة: ${today()} ${nowT()} · أعدّه: ${esc(role)}</div><table><tr><th>#</th><th>الاسم</th>${ds.map((d,i)=>`<th>${DN[i]}<br>${d}</th>`).join("")}</tr>${L.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}</td>${ds.map(d=>`<td style="text-align:center">${c(e,d)}</td>`).join("")}</tr>`).join("")}</table>${sigs()}</div>`,true,"attendance-"+(g?"guards-":"")+"w"+V.w+"-m"+(V.m+1))}
 // ===== شبكة الحضور الأسبوعية =====
 const HH=Array.from({length:24},(_,h)=>h),MM=Array.from({length:60},(_,m)=>m),p2=n=>String(n).padStart(2,"0");
 const f12=t=>{if(!t)return"--";const[h,m]=t.split(":");return p2(h%12||12)+":"+m+" "+(+h<12?"ص":"م")};
@@ -207,7 +227,7 @@ function fileSig(i){const f=i.files[0];if(!f)return;const im=new Image();im.onlo
 async function startCam(){const m=$("fm");try{if(!navigator.mediaDevices)throw{name:"NoHttps"};stopCam();stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});const v=$("vid");v.srcObject=stream;v.setAttribute("playsinline","");await v.play();m.textContent="الكاميرا تعمل ✔"}catch(e){stream=null;m.textContent={NotAllowedError:"الكاميرا محجوبة: اسمح بها للموقع من إعدادات المتصفح",NotFoundError:"لا توجد كاميرا في هذا الجهاز",NoHttps:"افتح الموقع عبر https"}[e.name]||"تعذر فتح الكاميرا، استخدم زر التقاط صورة"}}
 function stopCam(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null}
 function sig(el){const c=$("cv");c.width=c.height=16;const x=c.getContext("2d");x.drawImage(el||$("vid"),0,0,16,16);const d=x.getImageData(0,0,16,16).data,o=[];for(let i=0;i<d.length;i+=4)o.push((d[i]+d[i+1]+d[i+2])/3);const m=o.reduce((a,b)=>a+b)/o.length;return o.map(v=>Math.round(v-m))}
-const FACE_BASE="/qaimqamiya-hr-system/models";
+const FACE_BASE="https://huzt99.github.io/outandin/models";
 let FM=false,FL=null;
 function loadFace(){const n=()=>$("fn");if(FM){n().textContent="✅ التعرف الحقيقي على الوجه جاهز";return}if(typeof faceapi=="undefined"){n().textContent="⚠️ ملف face-api.min.js غير موجود: يعمل التعرف التقريبي";return}n().textContent="⏳ جارٍ تحميل نماذج التعرف...";
 FL=FL||Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(FACE_BASE),faceapi.nets.faceLandmark68Net.loadFromUri(FACE_BASE),faceapi.nets.faceRecognitionNet.loadFromUri(FACE_BASE)]);
