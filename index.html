@@ -106,9 +106,9 @@ table.lt th{background:#ede9fe;color:#3b0764}table.lt td{border-color:#ddd6fe;co
 <script>
 const FIREBASE_CONFIG={apiKey:"AIzaSyCuiPTtkgotBp90q_AEklmjvf8zXk5rSLk",authDomain:"inadnout-f3368.firebaseapp.com",projectId:"inadnout-f3368",storageBucket:"inadnout-f3368.firebasestorage.app",messagingSenderId:"221743078655",appId:"1:221743078655:web:1467b95d3dbe4f2db700ca"};
 firebase.initializeApp(FIREBASE_CONFIG);
-const KEYS=["director","manager","accounting","hr"],ROLES=["مدير الدائرة","مدير الإدارة","مسؤول الحاسبة","مسؤول الموظفين"];
-const INFO=[{t:"مدير الدائرة",n:["الحقوقي عدي قاسم محمد الاعرجي"]},{t:"مدير الإدارة",n:["سماهر عبد الحميد","محمد عفات","باسم رزاق"]},{t:"مسؤول الحاسبة",n:["حسين عبد المجيد"]},{t:"مسؤول الموظفين",n:["ياسر عامر برغش"]}];let ri=0;
-const TABS=[["att","1. الحضور والانصراف"],["lv","2. سجل الإجازات المطور"],["emp","3. العناوين الوظيفية"],["grd","4. حضور الحراس"],["mov","5. سجل الحركات"],["nt","6. الملاحظات"],["face","7. بصمة الوجه"]];
+const KEYS=["director","manager","accounting","hr","staff"],ROLES=["مدير الدائرة","مدير الإدارة","مسؤول الحاسبة","مسؤول الموظفين","دخول الموظفين (البصمة)"];
+const INFO=[{t:"مدير الدائرة",n:["الحقوقي عدي قاسم محمد الاعرجي"]},{t:"مدير الإدارة",n:["سماهر عبد الحميد","محمد عفات","باسم رزاق"]},{t:"مسؤول الحاسبة",n:["حسين عبد المجيد"]},{t:"مسؤول الموظفين",n:["ياسر عامر برغش"]},{t:"دخول الموظفين",n:["تسجيل الحضور بالبصمة"]}];let ri=0;
+const TABS=[["att","1. الحضور والانصراف"],["lv","2. سجل الإجازات المطور"],["emp","3. العناوين الوظيفية"],["grd","4. حضور الحراس"],["mov","5. سجل الحركات"],["nt","6. الملاحظات"],["face","7. بصمة الوجه"],["fp","8. بصمات الإبهام والوجه"],["eatt","9. جدول الحضور الإلكتروني"]];
 const COLS=["emps","att2","lv","notes","mov","hol","meta"];
 let S={},role=ROLES[0],tab="att",DB=null,seeded={},dirty=false,stream,IMG=null;
 COLS.forEach(c=>S[c]=[]);S.notif=[];
@@ -123,7 +123,7 @@ function del(c,id){S[c]=S[c].filter(x=>x.id!=id);save();if(DB)DB.collection(c).d
 const genText=()=>(S.meta.find(x=>x.id=="gen")||{}).text||"";
 function setNet(o){$("net").textContent=o?"🌐 متصل ومشترك":"💾 محلي"}
 async function net(){try{DB=firebase.firestore();
-COLS.forEach(c=>DB.collection(c).onSnapshot(s=>{if(s.empty&&S[c].length&&!seeded[c]){seeded[c]=1;S[c].forEach(r=>DB.collection(c).doc(String(r.id)).set(r).catch(()=>{}));return}seeded[c]=1;S[c]=s.docs.map(d=>d.data());save();setNet(1);const g=$("gen");if(g&&document.activeElement!=g)g.value=genText();const a=document.activeElement;if(!$("app").hidden&&tab!="face"&&!(dirty&&(tab=="att"||tab=="grd"))&&!(a&&a.matches("input,select")))go(tab)},()=>setNet(0)));
+COLS.forEach(c=>DB.collection(c).onSnapshot(s=>{if(s.empty&&S[c].length&&!seeded[c]){seeded[c]=1;S[c].forEach(r=>DB.collection(c).doc(String(r.id)).set(r).catch(()=>{}));return}seeded[c]=1;S[c]=s.docs.map(d=>d.data());save();setNet(1);const g=$("gen");if(g&&document.activeElement!=g)g.value=genText();const a=document.activeElement;if(!$("app").hidden&&!["face","fp","eatt"].includes(tab)&&!(dirty&&(tab=="att"||tab=="grd"))&&!(a&&a.matches("input,select")))go(tab)},()=>setNet(0)));
 DB.collection("notif").onSnapshot(sn=>{sn.docChanges().forEach(ch=>{if(ch.type!="added")return;const n=ch.doc.data();if(n.ts<Date.now()-12096e5){ch.doc.ref.delete().catch(()=>{});return}if(S.notif.some(x=>x.id==n.id))return;S.notif.push(n);if(n.ts>T_LOGIN&&n.cid!=CID)popN(n)});S.notif.sort((a,b)=>b.ts-a.ts);S.notif=S.notif.slice(0,100);upBell()})}catch(e){}}
 // ===== أدوات التاريخ =====
 const D=(y,m,d)=>new Date(Date.UTC(y,m,d)),iso=x=>x.toISOString().slice(0,10);
@@ -170,7 +170,7 @@ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=
 catch(e){toast("تعذر إنشاء PDF: "+(e&&e.message||e),5000)}}
 function printRep(t){openSheet(paperHTML(t),false,"report-"+t)}
 function printWeek(t){saveWeek(1);const g=t=="grd",ds=weekDays(V.y,V.m,V.w),L=S.emps.filter(e=>!!e.guard==g);
-const c=(e,d)=>{const r=S.att2.find(x=>x.id==e.id+"_"+d)||{},lv=lvOn(e.id,d),st=isHol(d)?"عطلة رسمية":(r.st||(lv?"إجازة":"حاضر"));return esc(st)+(r.in||r.out?`<br>${r.in||""} – ${r.out||""}`:"")+(r.note?`<br><small>${esc(r.note)}</small>`:"")+(lv&&lv.sub&&st=="إجازة"?`<br><small>البديل: ${esc(ename(lv.sub))}</small>`:"")};
+const c=(e,d)=>{const r=S.att2.find(x=>x.id==e.id+"_"+d)||{},lv=lvOn(e.id,d),st=isHol(d)?"عطلة رسمية":(r.st||(lv?"إجازة":"حاضر"));return esc(st)+(r.in||r.out?`<br>${r.in||""} – ${r.out||""}`:"")+(r.note?`<br><small>${esc(r.note)}</small>`:"")+(r.fv?`<br><small>✔ بصمة ${FVN[r.fvm||"face"]}</small>`:"")+(lv&&lv.sub&&st=="إجازة"?`<br><small>البديل: ${esc(ename(lv.sub))}</small>`:"")};
 openSheet(`<style>@media print{@page{size:A4 landscape;margin:10mm}}</style><div class="paper"><div class="pk">🏛️ قائمقامية قضاء السماوة</div><h2>${g?"سجل حضور وغياب الحراس":"سجل الحضور والغياب"} — الأسبوع ${V.w} / شهر ${V.m+1} / ${V.y}</h2><div class="sub">من ${ds[0]} إلى ${ds[4]} · تاريخ الطباعة: ${today()} ${nowT()} · أعدّه: ${esc(role)}</div><table><tr><th>#</th><th>الاسم</th>${ds.map((d,i)=>`<th>${DN[i]}<br>${d}</th>`).join("")}</tr>${L.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}</td>${ds.map(d=>`<td style="text-align:center">${c(e,d)}</td>`).join("")}</tr>`).join("")}</table>${sigs()}</div>`,true,"attendance-"+(g?"guards-":"")+"w"+V.w+"-m"+(V.m+1))}
 // ===== شبكة الحضور الأسبوعية =====
 const HH=Array.from({length:24},(_,h)=>h),MM=Array.from({length:60},(_,m)=>m),p2=n=>String(n).padStart(2,"0");
@@ -178,12 +178,12 @@ const f12=t=>{if(!t)return"--";const[h,m]=t.split(":");return p2(h%12||12)+":"+m
 const fvT=id=>((S.att2.find(x=>x.id==id+"_"+today())||{}).fv)||"";
 function tp(id,f,val,dis){const[h,m]=(val||"").split(":");return `<span class="tp"><select data-t="${id}|${f}|h" ${dis}><option value="">--</option>${HH.map(x=>`<option value="${p2(x)}" ${h==p2(x)?"selected":""}>${p2(x%12||12)} ${x<12?"ص":"م"}</option>`).join("")}</select><b>:</b><select data-t="${id}|${f}|m" ${dis}>${MM.map(x=>`<option value="${p2(x)}" ${(m||"00")==p2(x)?"selected":""}>${p2(x)}</option>`).join("")}</select></span>`}
 function cell(e,d,i){const id=e.id+"_"+d,r=S.att2.find(x=>x.id==id)||{},h=isHol(d),lv=lvOn(e.id,d),st=h?"عطلة رسمية":(r.st||(lv?"إجازة":"حاضر")),dis=h?"disabled":"";
-return `<td class="dc ${i==V.d?"sel":""} ${st=="غائب"?"cab":st=="إجازة"||h?"clv":st=="حاضر"?"cok":""}" data-d="${i}"><select data-k="${id}" data-f="st" ${dis}>${["حاضر","غائب","إجازة","مهمة رسمية"].map(o=>`<option ${o==st?"selected":""}>${o}</option>`).join("")}${h?"<option selected>عطلة رسمية</option>":""}</select>${lv&&lv.sub?`<small class="sb">البديل: ${esc(ename(lv.sub))}</small>`:""}${r.fv?`<small class="fvb">✔ تم التحقق بالبصمة ${f12(r.fv)}</small>`:""}${r.in||r.out?`<div class="ts">⏰ ${f12(r.in)} ← ${f12(r.out)}</div>`:""}<div class="tl2"><small>حضور</small>${tp(id,"in",r.in,dis)}</div><div class="tl2"><small>انصراف</small>${tp(id,"out",r.out,dis)}</div><input data-k="${id}" data-f="note" placeholder="تصحيح/ملاحظة..." value="${esc(r.note||"")}" ${dis}></td>`}
+return `<td class="dc ${i==V.d?"sel":""} ${st=="غائب"?"cab":st=="إجازة"||h?"clv":st=="حاضر"?"cok":""}" data-d="${i}"><select data-k="${id}" data-f="st" ${dis}>${["حاضر","غائب","إجازة","مهمة رسمية"].map(o=>`<option ${o==st?"selected":""}>${o}</option>`).join("")}${h?"<option selected>عطلة رسمية</option>":""}</select>${lv&&lv.sub?`<small class="sb">البديل: ${esc(ename(lv.sub))}</small>`:""}${fvLbl(r)?`<small class="fvb">${fvLbl(r)}</small>`:""}${r.in||r.out?`<div class="ts">⏰ ${f12(r.in)} ← ${f12(r.out)}</div>`:""}<div class="tl2"><small>حضور</small>${tp(id,"in",r.in,dis)}</div><div class="tl2"><small>انصراف</small>${tp(id,"out",r.out,dis)}</div><input data-k="${id}" data-f="note" placeholder="تصحيح/ملاحظة..." value="${esc(r.note||"")}" ${dis}></td>`}
 function saveWeek(q){const m={};document.querySelectorAll("[data-k]").forEach(el=>{if(el.disabled)return;(m[el.dataset.k]=m[el.dataset.k]||{})[el.dataset.f]=el.value});
 const T={};document.querySelectorAll("[data-t]").forEach(el=>{if(el.disabled)return;const[k,f,p]=el.dataset.t.split("|"),z=k+"|"+f;(T[z]=T[z]||{k,f})[p]=el.value});
 Object.values(T).forEach(o=>{(m[o.k]=m[o.k]||{})[o.f]=o.h?o.h+":"+(o.m||"00"):""});let n=0;
 for(const k in m){const[eid,d]=k.split("_"),o=S.att2.find(x=>x.id==k)||{},v=m[k],def=lvOn(eid,d)?"إجازة":"حاضر";
-if(v.st!=(o.st||def)||(v.in||"")!=(o.in||"")||(v.out||"")!=(o.out||"")||(v.note||"")!=(o.note||"")){if(v.st=="غائب"&&(o.st||def)!="غائب")notify("absent","تم تسجيل غياب الموظف "+ename(eid)+" يوم "+d);if(v.out&&v.out!=(o.out||""))notify("out","انصراف الموظف "+ename(eid)+" الساعة "+v.out+" ("+d+")");put("att2",{id:k,eid,date:d,st:v.st,in:v.in||"",out:v.out||"",note:v.note||"",fv:o.fv||""});n++}}
+if(v.st!=(o.st||def)||(v.in||"")!=(o.in||"")||(v.out||"")!=(o.out||"")||(v.note||"")!=(o.note||"")){if(v.st=="غائب"&&(o.st||def)!="غائب")notify("absent","تم تسجيل غياب الموظف "+ename(eid)+" يوم "+d);if(v.out&&v.out!=(o.out||""))notify("out","انصراف الموظف "+ename(eid)+" الساعة "+v.out+" ("+d+")");put("att2",{id:k,eid,date:d,st:v.st,in:v.in||"",out:v.out||"",note:v.note||"",fv:o.fv||"",fvm:o.fvm||"",fvd:o.fvd||""});n++}}
 dirty=false;if(!q)toast(n?"تم حفظ "+n+" تعديل ✔":"لا توجد تعديلات جديدة")}
 function selDay(i){V.d=i;document.querySelectorAll(".dc").forEach(el=>el.classList.toggle("sel",el.dataset.d==i));document.querySelectorAll(".dtb").forEach((el,j)=>el.classList.toggle("on",j==i))}
 function togH(d){saveWeek(1);isHol(d)?del("hol",d):put("hol",{id:d});go(tab)}
@@ -195,7 +195,7 @@ return `<div class="card"><div class="ch"><h2>👥 ${g?"حضور وغياب ال
 <div class="acts"><button class="bt o" onclick="printWeek('${t}')">🖨️ طباعة</button><button class="bt b" onclick="addEmp(${g})">➕ إضافة ${g?"حارس":"موظف"}</button><button class="bt gr" onclick="saveWeek()">💾 حفظ التغييرات</button></div></div>
 <div class="hol"><b>🏖️ تحديد عطلة رسمية للأسبوع:</b><div>${ds.map((d,i)=>`<span class="hc ${isHol(d)?"on":""}" onclick="togH('${d}')">⊗ ${DN[i]}</span>`).join("")}</div></div>
 <div class="dtabs">${DN.map((n,i)=>`<button class="dtb ${i==V.d?"on":""}" onclick="selDay(${i})">${n}<small>${ds[i].slice(5)}</small></button>`).join("")}</div>
-<div class="tw"><table class="gt wk" oninput="dirty=true"><tr><th class="nmh">اسم ${g?"الحارس":"الموظف"}</th>${ds.map((d,i)=>`<th class="dc ${i==V.d?"sel":""}" data-d="${i}">${DN[i]}<small>${d.slice(5)}</small></th>`).join("")}<th>إجراء</th></tr>${L.map((e,i)=>`<tr><td class="nm">${i+1}. ${esc(e.name)}${fvT(e.id)?`<small class="fvb">✔ تم التحقق من بصمة الوجه ${f12(fvT(e.id))}</small>`:""}</td>${ds.map((d,j)=>cell(e,d,j)).join("")}<td><button class="tr" onclick="delE('${e.id}')">🗑</button></td></tr>`).join("")||`<tr><td colspan="7" class="mu">لا يوجد — اضغط «إضافة»</td></tr>`}</table></div></div>`}
+<div class="tw"><table class="gt wk" oninput="dirty=true"><tr><th class="nmh">اسم ${g?"الحارس":"الموظف"}</th>${ds.map((d,i)=>`<th class="dc ${i==V.d?"sel":""}" data-d="${i}">${DN[i]}<small>${d.slice(5)}</small></th>`).join("")}<th>إجراء</th></tr>${L.map((e,i)=>`<tr><td class="nm">${i+1}. ${esc(e.name)}${fvLbl(fvRec(e.id),1)?`<small class="fvb">${fvLbl(fvRec(e.id),1)}</small>`:""}</td>${ds.map((d,j)=>cell(e,d,j)).join("")}<td><button class="tr" onclick="delE('${e.id}')">🗑</button></td></tr>`).join("")||`<tr><td colspan="7" class="mu">لا يوجد — اضغط «إضافة»</td></tr>`}</table></div></div>`}
 // ===== العناوين / الموظفون =====
 function addEmp(g){const n=(prompt(g?"اسم الحارس":"اسم الموظف")||"").trim();if(!n)return;put("emps",{id:uid(),name:n,job:prompt("العنوان الوظيفي")||"",guard:!!g});go(tab)}
 function upE(id,f,v){const e=S.emps.find(x=>x.id==id);if(e){e[f]=v;put("emps",e)}}
@@ -214,7 +214,9 @@ nt(){return `<div class="card"><h2>إضافة ملاحظة / مطالعة</h2><d
 <div class="card">${bar('nt')}</div>${paperHTML('nt',true)}`},
 face(){return `<div class="card"><h2>تسجيل الحضور ببصمة الوجه</h2><video id="vid" autoplay playsinline muted></video><canvas id="cv" hidden></canvas><div class="row" style="margin-top:10px"><select id="fe">${empOpts()}</select></div>
 <div class="acts"><button class="bt s" onclick="startCam()">📷 تشغيل الكاميرا</button><label class="bt s">📸 التقاط صورة<input id="fi" type="file" accept="image/*" capture="user" hidden onchange="fileSig(this)"></label><button class="bt b" onclick="faceVerify()">✅ تسجيل حضور بالوجه</button><button class="bt o" onclick="faceEnroll()">📸 تسجيل وجه الموظف</button></div><p id="fm" class="mu"></p>
-<p id="fn" class="mu" style="font-size:12px"></p></div>`}};
+<p id="fn" class="mu" style="font-size:12px"></p></div>`}
+,fp(){return `<div class="card"><h2>👆🙂 بصمات الإبهام والوجه</h2>${fpcam()}<p class="mu">يسجّل كل موظف بصمته من هاتفه الشخصي. تُحفظ تلقائياً عند نجاح التسجيل.</p><div class="tw"><table class="gt" style="min-width:560px"><tr><th>#</th><th>الاسم</th><th>بصمة الإبهام</th><th>بصمة الوجه</th></tr>${S.emps.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}</td><td><span id="sp_${e.id}">${e.fp?"✔ مسجّلة":"—"}</span><br><button class="bt o" onclick="enrollFP('${e.id}')">👆 إضافة بصمة إبهام</button></td><td><span id="sf_${e.id}">${e.face2?"✔ مسجّلة":"—"}</span><br><button class="bt b" onclick="enrollFace('${e.id}')">🙂 إضافة بصمة وجه</button></td></tr>`).join("")||`<tr><td colspan="4" class="mu">أضف موظفين أولاً</td></tr>`}</table></div></div>`},
+eatt(){return `<div class="card"><h2>🗓️ جدول الحضور الإلكتروني</h2>${fpcam()}<p class="mu">اليوم: ${dayN()} ${today()} — اختر بصمة الإبهام أو الوجه أو الاثنين معاً، ويُسجَّل الحضور تلقائياً في سجل الحضور.</p><div class="tw"><table class="gt" style="min-width:620px"><tr><th>#</th><th>الاسم</th><th>أدخل بصمتك</th><th>الحالة</th></tr>${S.emps.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.name)}</td><td><button class="bt o" onclick="doEatt('${e.id}','fp')">👆 أدخل بصمة إبهامك</button> <button class="bt b" onclick="doEatt('${e.id}','face')">🙂 بصمة وجهك</button></td><td><span id="ea_${e.id}">${fvLbl(fvRec(e.id),1)||"—"}</span></td></tr>`).join("")||`<tr><td colspan="4" class="mu">أضف موظفين أولاً</td></tr>`}</table></div></div>`}};
 // ===== عمليات =====
 function addL(){if(!$("le").value)return;const r={id:uid(),eid:$("le").value,kind:$("lk").value,amt:+$("la").value||1,date:$("ld").value,sub:$("ls").value==$("le").value?"":$("ls").value};put("lv",r);notify("leave","تم تسجيل إجازة "+KIND[r.kind]+" للموظف "+ename(r.eid)+" ابتداءً من "+r.date+(r.sub?" والبديل: "+ename(r.sub):""));go("lv")}
 function addN(){const t=$("nx").value.trim();if(!t)return;put("notes",{id:uid(),eid:$("ne").value,date:$("nd").value,text:t});notify("note","ملاحظة جديدة من "+INFO[ri].t+": "+t.slice(0,80));go("nt")}
@@ -239,7 +241,49 @@ e.face=sig(el);put("emps",e);m.textContent="تم تسجيل وجه "+e.name+" (�
 async function faceVerify(){const el=stream?$("vid"):IMG,m=$("fm");if(!el){m.textContent="شغّل الكاميرا أو التقط صورة أولاً";return}let best=null,bd=1e9,ok=false;
 if(FM){m.textContent="⏳ جارٍ التعرف...";const d=await desc(el);if(!d){m.textContent="❌ لم يُكتشف وجه واضح";return}S.emps.filter(e=>e.face2).forEach(e=>{const x=faceapi.euclideanDistance(d,e.face2);if(x<bd){bd=x;best=e}});ok=best&&bd<0.5}
 else{const s=sig(el);S.emps.filter(e=>e.face).forEach(e=>{const x=e.face.reduce((a,v,i)=>a+Math.abs(v-s[i]),0)/256;if(x<bd){bd=x;best=e}});ok=best&&bd<25}
-if(ok){const k=best.id+"_"+today(),o=S.att2.find(x=>x.id==k)||{};put("att2",{id:k,eid:best.id,date:today(),st:"حاضر",in:o.in||nowT(),out:o.out||"",note:o.note||"",fv:nowT()});m.textContent="✅ تم التحقق من بصمة الوجه: "+best.name+" — سُجّل حاضراً";toast("✅ "+best.name+": تم التحقق من بصمة الوجه وسُجّل حاضراً",4000)}else m.textContent="❌ لم يتم التعرف على الوجه"}
+if(ok){const k=best.id+"_"+today(),o=S.att2.find(x=>x.id==k)||{};put("att2",{id:k,eid:best.id,date:today(),st:"حاضر",in:o.in||nowT(),out:o.out||"",note:o.note||"",fv:nowT(),fvm:mergeM(o,"face"),fvd:dayN()});m.textContent="✅ تم التحقق من بصمة الوجه: "+best.name+" — سُجّل حاضراً";toast("✅ "+best.name+": تم التحقق من بصمة الوجه وسُجّل حاضراً",4000)}else m.textContent="❌ لم يتم التعرف على الوجه"}
+// ===== البصمات الإلكترونية (إبهام + وجه) =====
+const DAYN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"],FVN={face:"الوجه",fp:"الإبهام",both:"الوجه والإبهام"};
+const dayN=()=>DAYN[new Date().getDay()];
+const mergeM=(o,m)=>{const p=o.fvm||(o.fv?"face":"");return p=="both"?"both":(!p||p==m)?m:"both"};
+const fvRec=id=>S.att2.find(x=>x.id==id+"_"+today())||{};
+const fvLbl=(r,full)=>r.fv?"✔ تم التحقق ببصمة "+FVN[r.fvm||"face"]+" "+f12(r.fv)+(full&&r.date?" — "+(r.fvd||dayN())+" "+r.date:""):"";
+const fmsg=t=>{const m=$("fm");if(m)m.textContent=t};
+function fpcam(){return `<video id="vid" autoplay playsinline muted></video><canvas id="cv" hidden></canvas><div class="acts" style="margin:8px 0"><button class="bt s" onclick="startCam()">📷 تشغيل الكاميرا</button><label class="bt s">📸 التقاط صورة<input type="file" accept="image/*" capture="user" hidden onchange="fileSig(this)"></label></div><p id="fm" class="mu"></p><p id="fn" class="mu" style="font-size:12px"></p>`}
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const fpErr=x=>({NoSup:"هذا الهاتف أو المتصفح لا يدعم بصمة الإبهام، أو لم تُفعَّل بصمة في إعدادات الهاتف",NoEnroll:"لا توجد بصمة إبهام مسجلة لهذا الموظف، سجّلها من قائمة البصمات",NotAllowedError:"لم يتم التحقق: أُلغي الطلب أو هذا الهاتف غير مسجَّل لهذا الموظف",SecurityError:"افتح الموقع عبر https",NeedApp:"هذه البصمة مسجّلة من التطبيق، افتح تطبيق البرنامج للتحقق",NeedWeb:"هذه البصمة مسجّلة من المتصفح، أعد تسجيلها من داخل التطبيق",OtherDev:"هذا الهاتف غير مسجَّل لهذا الموظف"}[x.name]||"تعذر التحقق بالإبهام ("+(x.name||x.message)+")");
+// --- بصمة أصلية (تطبيق أندرويد عبر Capacitor) ---
+const isNat=()=>!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+const devKey=()=>{try{let k=localStorage.getItem("devkey");if(!k){k=uid()+uid();localStorage.setItem("devkey",k)}return k}catch(e){return ""}};
+let BAN=null;const nBio=()=>BAN||(BAN=Capacitor.registerPlugin("BiometricAuthNative"));
+async function nativeAuth(){const P=nBio();let r;try{r=await P.checkBiometry()}catch(e){throw{name:"NoSup"}}
+if(!r||!r.isAvailable)throw{name:"NoSup"};
+try{await P.internalAuthenticate({reason:"التحقق ببصمة الإبهام",cancelTitle:"إلغاء",allowDeviceCredential:false,androidTitle:"التحقق ببصمة الإبهام",androidSubtitle:"ضع إصبعك على المستشعر",androidConfirmationRequired:false})}catch(e){throw{name:"NotAllowedError",message:e&&e.message}}}
+async function fpOK(){if(isNat()){try{const r=await nBio().checkBiometry();return !!(r&&r.isAvailable)}catch(e){return false}}
+try{return !!(window.PublicKeyCredential&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())}catch(e){return false}}
+async function enrollFP(id){const e=S.emps.find(x=>x.id==id);if(!e)return;if(isStaff()&&e.fp){fmsg("بصمة الإبهام مسجّلة مسبقاً، للتحديث راجع مسؤول الموظفين");return}
+try{if(!await fpOK())throw{name:"NoSup"};
+if(isNat()){await nativeAuth();e.fp="native";e.fpDev=devKey()}else{const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:"قائمقامية قضاء السماوة"},user:{id:new TextEncoder().encode(String(e.id)),name:e.name,displayName:e.name},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required"},timeout:60000}});e.fp=b64(c.rawId);e.fpDev=""}e.fpAt=today();put("emps",e);const s=$("sp_"+id);if(s)s.textContent="✔ مسجّلة";fmsg("✅ تم حفظ بصمة إبهام "+e.name);toast("✅ تم حفظ بصمة إبهام "+e.name,3000)}catch(x){fmsg("❌ "+fpErr(x))}}
+async function verifyFP(e){if(!e.fp)throw{name:"NoEnroll"};
+if(e.fp=="native"){if(!isNat())throw{name:"NeedApp"};if(e.fpDev!==devKey())throw{name:"OtherDev"};await nativeAuth();return}
+if(isNat())throw{name:"NeedWeb"};if(!await fpOK())throw{name:"NoSup"};await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:unb64(e.fp)}],userVerification:"required",timeout:60000}})}
+async function enrollFace(id){const e=S.emps.find(x=>x.id==id),el=stream?$("vid"):IMG;if(!e)return;if(isStaff()&&e.face2){fmsg("بصمة الوجه مسجّلة مسبقاً، للتحديث راجع مسؤول الموظفين");return}
+if(!el){fmsg("شغّل الكاميرا أو التقط صورة أولاً");return}if(!FM){fmsg("نماذج التعرف لم تُحمَّل بعد، انتظر قليلاً ثم أعد المحاولة");return}
+fmsg("⏳ جارٍ تحليل الوجه...");const d=await desc(el);if(!d){fmsg("❌ لم يُكتشف وجه واضح، قرّب الوجه وحسّن الإضاءة");return}
+e.face2=Array.from(d).map(x=>+x.toFixed(4));e.faceAt=today();put("emps",e);const s=$("sf_"+id);if(s)s.textContent="✔ مسجّلة";fmsg("✅ تم حفظ بصمة وجه "+e.name);toast("✅ تم حفظ بصمة وجه "+e.name,3000)}
+async function verifyFace(e){const el=stream?$("vid"):IMG;
+if(!e.face2){fmsg("لا توجد بصمة وجه مسجلة لـ "+e.name+" — سجّلها من قائمة البصمات");return false}
+if(!el){fmsg("شغّل الكاميرا أو التقط صورة أولاً");return false}if(!FM){fmsg("نماذج التعرف لم تُحمَّل بعد، انتظر قليلاً ثم أعد المحاولة");return false}
+fmsg("⏳ جارٍ التحقق من الوجه...");const d=await desc(el);if(!d){fmsg("❌ لم يُكتشف وجه واضح");return false}
+if(faceapi.euclideanDistance(d,e.face2)>=0.5){fmsg("❌ الوجه لا يطابق "+e.name);return false}return true}
+async function doEatt(id,m){const e=S.emps.find(x=>x.id==id);if(!e)return;
+if(m=="fp"){try{await verifyFP(e)}catch(x){fmsg("❌ "+fpErr(x));return}}else if(!await verifyFace(e))return;
+const k=e.id+"_"+today(),o=S.att2.find(x=>x.id==k)||{},mm=mergeM(o,m);
+put("att2",{id:k,eid:e.id,date:today(),st:"حاضر",in:o.in||nowT(),out:o.out||"",note:o.note||"",fv:nowT(),fvm:mm,fvd:dayN()});
+notify("in","حضور الموظف "+e.name+" — تم التحقق ببصمة "+FVN[mm]+" الساعة "+nowT());
+const a=$("ea_"+id);if(a)a.textContent=fvLbl(fvRec(id),1);
+fmsg("✅ تم تسجيل الحضور في سجل الحضور الإلكتروني: "+e.name+" — "+dayN()+" "+today()+" — تم التحقق ببصمة "+FVN[mm]);toast("✅ "+e.name+": تم تسجيل الحضور",4000)}
+const isStaff=()=>role==ROLES[4],visTabs=()=>isStaff()?TABS.filter(t=>t[0]=="fp"||t[0]=="eatt"):TABS;
 // ===== الإشعارات =====
 const CID=uid();let T_LOGIN=0,NSEEN=0;const NI={absent:"🚫",out:"🚪",move:"🚗",leave:"🏖️",note:"📝"};
 function notify(type,text){if(!DB)return;const r={id:uid(),ts:Date.now(),type,text,cid:CID,by:role,who:INFO[ri].n.join(" / ")};DB.collection("notif").doc(r.id).set(r).catch(()=>{})}
@@ -259,7 +303,7 @@ function saveGen(v){put("meta",{id:"gen",text:v});if(v.trim())notify("note",`م�
 $("roles").innerHTML=ROLES.map((r,i)=>`<label><input type="radio" name="r" value="${r}" ${i?"":"checked"}> ${r}</label>`).join("");
 async function login(){const i=ROLES.indexOf(document.querySelector("input[name=r]:checked").value);
 try{await firebase.auth().signInWithEmailAndPassword(KEYS[i]+"@hr.local",$("pin").value)}catch(e){$("err").textContent="الرمز غير صحيح أو تعذر الاتصال ("+(e.code||e.message)+")";return}
-ri=i;role=ROLES[i];T_LOGIN=Date.now();NSEEN=+localStorage.getItem("nseen")||T_LOGIN;$("lock").hidden=true;$("app").hidden=false;$("dt").textContent=INFO[i].t;$("dn").textContent=INFO[i].n.join(" / ");$("gen").value=genText();nav();net();enablePush(true);go("att")}
-function nav(){$("nav").innerHTML=TABS.map(t=>`<button class="tb ${t[0]==tab?"on":""}" onclick="saveWeek(1);go('${t[0]}')">${t[1]}</button>`).join("")}
-function go(t){tab=t;dirty=false;nav();stopCam();$("v").innerHTML=VIEWS[t]();if(t=="face")loadFace()}
+ri=i;role=ROLES[i];T_LOGIN=Date.now();NSEEN=+localStorage.getItem("nseen")||T_LOGIN;$("lock").hidden=true;$("app").hidden=false;$("dt").textContent=INFO[i].t;$("dn").textContent=INFO[i].n.join(" / ");$("gen").value=genText();nav();net();enablePush(true);if(ri==4){document.querySelectorAll(".tl .bt.y").forEach(b=>b.hidden=true);go("eatt")}else go("att")}
+function nav(){$("nav").innerHTML=visTabs().map(t=>`<button class="tb ${t[0]==tab?"on":""}" onclick="saveWeek(1);go('${t[0]}')">${t[1]}</button>`).join("")}
+function go(t){tab=t;dirty=false;nav();stopCam();$("v").innerHTML=VIEWS[t]();if(t=="face"||t=="fp"||t=="eatt")loadFace()}
 </script></body></html>
